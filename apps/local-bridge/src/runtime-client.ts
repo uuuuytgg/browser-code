@@ -1,7 +1,12 @@
 import path from "node:path";
 
-import { MockModelProvider, createStage1MockTools, runAgentTask } from "@ska/runtime";
-import type { CaptureTask, RunAgentTaskResult } from "@ska/schemas";
+import { createRegisteredTools, runAgentTask } from "@ska/runtime";
+import type { CaptureTask, RunAgentTaskResult, ToolResult, WebToMarkdownOutput, SaveMarkdownNoteOutput } from "@ska/schemas";
+
+type ToolMessagePayload = {
+  name: string;
+  result: ToolResult;
+};
 
 export type RuntimeTaskHandler = (task: CaptureTask) => Promise<RunAgentTaskResult>;
 
@@ -22,75 +27,127 @@ export function createRuntimeTaskHandler(
         status: "error",
         error: {
           code: "TASK_TYPE_NOT_IMPLEMENTED",
-          message: `Task type ${task.task_type} is not implemented in Stage 5 bridge runtime mock`
+          message: `Task type ${task.task_type} is not implemented in Stage 8 bridge runtime handler`
         }
       };
     }
 
-    const provider = new MockModelProvider(createMockOutputs(task));
+    const provider = new LocalBridgeCaptureProvider(task);
 
     return runAgentTask(task, {
       provider,
-      tools: createStage1MockTools(),
+      tools: createRegisteredTools(),
       tempDir,
       vaultDir
     });
   };
 }
 
-function createMockOutputs(task: CaptureTask) {
-  const markdownTitle = task.page.title || task.page.url;
-  const noteId = `mock_${task.task_id}`;
-  const filePath = "vault/articles/mock-note.md";
-  const html = task.page.html ?? "<html><body></body></html>";
+class LocalBridgeCaptureProvider {
+  readonly name = "mock";
 
-  return [
-    {
-      type: "tool_call",
-      tool_call: {
-        id: `${task.task_id}_call_1`,
-        name: "web_to_markdown",
-        input: {
-          url: task.page.url,
-          title: markdownTitle,
-          html,
-          selected_text: task.page.selected_text ?? null,
-          mode: task.task_type === "save_selection" ? "selection" : "full"
+  constructor(private readonly task: CaptureTask) {}
+
+  async generate(input: {
+    messages: Array<{ role: "user" | "assistant" | "tool"; content: string }>;
+  }) {
+    const toolMessages = input.messages
+      .filter((message) => message.role === "tool")
+      .map((message) => parseToolMessage(message.content))
+      .filter((message): message is ToolMessagePayload => Boolean(message));
+
+    const webResult = findToolResult<WebToMarkdownOutput>(toolMessages, "web_to_markdown");
+    const saveResult = findToolResult<SaveMarkdownNoteOutput>(toolMessages, "save_markdown_note");
+
+    let parsed: unknown;
+
+    if (!webResult) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_1`,
+          name: "web_to_markdown",
+          input: {
+            url: this.task.page.url,
+            title: this.task.page.title,
+            html: this.task.page.html ?? "<html><body></body></html>",
+            selected_text: this.task.page.selected_text ?? null,
+            mode: this.task.task_type === "save_selection" ? "selection" : "readability"
+          }
         }
-      }
-    },
-    {
-      type: "tool_call",
-      tool_call: {
-        id: `${task.task_id}_call_2`,
-        name: "save_markdown_note",
-        input: {
-          markdown: buildMockMarkdown(task, markdownTitle),
-          metadata: {
-            title: markdownTitle,
-            source_url: task.page.url,
-            tags: [task.task_type]
-          },
-          content_type: task.task_type === "save_selection" ? "snippet" : "article",
-          source_url: task.page.url
+      };
+    } else if (!saveResult) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_2`,
+          name: "save_markdown_note",
+          input: {
+            markdown: webResult.markdown,
+            metadata: {
+              title: webResult.metadata.title,
+              source_url: webResult.metadata.source_url,
+              source_platform: this.task.page.platform ?? "web",
+              tags: [this.task.task_type],
+              keywords: extractKeywords(webResult)
+            },
+            content_type: this.task.task_type === "save_selection" ? "snippet" : "article",
+            source_url: webResult.metadata.source_url
+          }
         }
-      }
-    },
-    {
-      type: "final",
-      answer: {
-        message: "Saved by local bridge runtime mock.",
-        note_id: noteId,
-        file_path: filePath
-      }
+      };
+    } else if (!findToolResult(toolMessages, "build_index")) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_3`,
+          name: "build_index",
+          input: {}
+        }
+      };
+    } else {
+      parsed = {
+        type: "final",
+        answer: {
+          message: "Saved to local vault.",
+          note_id: saveResult.note_id,
+          file_path: saveResult.file_path
+        }
+      };
     }
-  ];
+
+    return {
+      raw: JSON.stringify(parsed),
+      parsed
+    };
+  }
 }
 
-function buildMockMarkdown(task: CaptureTask, title: string) {
-  if (task.task_type === "save_selection" && task.page.selected_text) {
-    return `# ${title}\n\n${task.page.selected_text}`;
+function parseToolMessage(content: string) {
+  try {
+    return JSON.parse(content) as ToolMessagePayload;
+  } catch {
+    return null;
+  }
+}
+
+function findToolResult<T>(messages: ToolMessagePayload[], toolName: string) {
+  const match = messages.find((message) => message.name === toolName && message.result.ok);
+  return match?.result.output as T | undefined;
+}
+
+function extractKeywords(result: WebToMarkdownOutput) {
+  const keywordSet = new Set<string>();
+  const text = `${result.metadata.title} ${result.metadata.excerpt ?? ""} ${result.markdown}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 4)
+    .slice(0, 12);
+
+  for (const token of text) {
+    keywordSet.add(token);
   }
 
-  return `# ${title}\n\nSaved from ${task.page.url}`;
+  return [...keywordSet].slice(0, 8);
 }

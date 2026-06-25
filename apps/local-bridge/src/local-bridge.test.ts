@@ -95,13 +95,60 @@ describe("local bridge server", () => {
 
       const finalRecord = await waitForTask(server, task.task_id);
       expect(finalRecord.status).toBe("done");
-      expect(finalRecord.result).toMatchObject({
-        status: "done",
-        answer: {
-          note_id: `mock_${task.task_id}`,
-          file_path: "vault/articles/mock-note.md"
-        }
+      expect(finalRecord.result?.status).toBe("done");
+      expect(finalRecord.result?.answer?.file_path).toMatch(/^vault\/articles\/.+\.md$/);
+
+      const filePath = path.join(root, finalRecord.result.answer.file_path.replace(/^vault\//, "vault/"));
+      const savedMarkdown = await fs.readFile(filePath, "utf8");
+      expect(savedMarkdown).toContain("Hello bridge");
+
+      const indexPath = path.join(root, "vault", "index", "index.json");
+      const indexRaw = await fs.readFile(indexPath, "utf8");
+      const index = JSON.parse(indexRaw);
+      expect(index.notes).toHaveLength(1);
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("saves selections into the snippets vault path using selected text mode", async () => {
+    const root = createTempRoot();
+    const task = createTask({
+      task_id: "task_bridge_selection",
+      task_type: "save_selection",
+      page: {
+        url: "https://example.com/selection",
+        title: "Selection Example",
+        html: "<html><body><article>Full article should not win.</article></body></html>",
+        selected_text: "Only this selected sentence should be saved.",
+        platform: "web"
+      }
+    });
+    const server = createLocalBridgeServer({
+      port: 0,
+      runtimeHandler: createRuntimeTaskHandler({
+        tempDir: path.join(root, "temp"),
+        vaultDir: path.join(root, "vault")
+      })
+    });
+
+    await server.start();
+    try {
+      await fetch(server.url("/tasks"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(task)
       });
+
+      const finalRecord = await waitForTask(server, task.task_id);
+      expect(finalRecord.status).toBe("done");
+      expect(finalRecord.result?.answer?.file_path).toMatch(/^vault\/snippets\/.+\.md$/);
+
+      const filePath = path.join(root, finalRecord.result.answer.file_path.replace(/^vault\//, "vault/"));
+      const savedMarkdown = await fs.readFile(filePath, "utf8");
+      expect(savedMarkdown).toContain("Only this selected sentence should be saved.");
     } finally {
       await server.stop();
     }
