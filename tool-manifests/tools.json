@@ -29,13 +29,13 @@
       "name": "fetch_transcript",
       "risk": "low",
       "agent_modes": ["media"],
-      "implemented": false
+      "implemented": true
     },
     {
       "name": "ffmpeg_extract_audio",
       "risk": "high",
       "agent_modes": ["media"],
-      "implemented": false
+      "implemented": true
     },
     {
       "name": "scan_page_resources",

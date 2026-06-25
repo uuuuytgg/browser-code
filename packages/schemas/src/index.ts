@@ -204,3 +204,46 @@ export const SearchVaultResultSchema = z.object({
   snippet: z.string()
 });
 export type SearchVaultResult = z.infer<typeof SearchVaultResultSchema>;
+
+export const TranscriptLineSchema = z.object({
+  start: z.number().nonnegative(),
+  end: z.number().nonnegative().optional(),
+  text: z.string().min(1)
+});
+export type TranscriptLine = z.infer<typeof TranscriptLineSchema>;
+
+export const VideoPlatformSchema = z.enum(["youtube", "bilibili", "unknown"]);
+export type VideoPlatform = z.infer<typeof VideoPlatformSchema>;
+
+export const FetchTranscriptInputSchema = z.object({
+  url: z.string().url(),
+  platform: VideoPlatformSchema.optional(),
+  html: z.string().optional(),
+  preferred_languages: z.array(z.string()).optional()
+});
+export type FetchTranscriptInput = z.infer<typeof FetchTranscriptInputSchema>;
+
+export const FetchTranscriptOutputSchema = z.object({
+  ok: z.boolean(),
+  platform: VideoPlatformSchema,
+  transcript: z.array(TranscriptLineSchema).optional(),
+  metadata: z.object({
+    title: z.string().optional(),
+    uploader: z.string().optional(),
+    duration_seconds: z.number().nonnegative().optional()
+  }).optional(),
+  error: z.string().optional(),
+  next_action: z.enum(["summarize", "need_audio_transcription", "unsupported"])
+});
+export type FetchTranscriptOutput = z.infer<typeof FetchTranscriptOutputSchema>;
+
+export const FfmpegExtractAudioInputSchema = z.object({
+  input_path: z.string().min(1),
+  output_format: z.enum(["wav", "mp3", "m4a"])
+});
+export type FfmpegExtractAudioInput = z.infer<typeof FfmpegExtractAudioInputSchema>;
+
+export const FfmpegExtractAudioOutputSchema = z.object({
+  audio_path: z.string().min(1)
+});
+export type FfmpegExtractAudioOutput = z.infer<typeof FfmpegExtractAudioOutputSchema>;

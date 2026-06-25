@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ska/schemas": "workspace:*"
+    "@ska/schemas": "workspace:*",
+    "jsdom": "^26.1.0"
   }
 }

@@ -146,6 +146,9 @@ importers:
       '@ska/schemas':
         specifier: workspace:*
         version: link:../schemas
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
 
   packages/tool-web:
     dependencies:

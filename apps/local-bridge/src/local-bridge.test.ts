@@ -222,6 +222,103 @@ describe("local bridge server", () => {
       await server.stop();
     }
   });
+
+  it("saves a video transcript into the videos vault path when transcript data is present", async () => {
+    const root = createTempRoot();
+    const task = createTask({
+      task_id: "task_bridge_video",
+      task_type: "summarize_video",
+      page: {
+        url: "https://www.youtube.com/watch?v=abc123",
+        title: "Video Example",
+        html: `
+          <html>
+            <head>
+              <meta property="og:title" content="Video Example" />
+              <meta name="author" content="Uploader Name" />
+            </head>
+            <body>
+              <div data-transcript-text="First transcript line" data-start="0" data-end="2"></div>
+              <div data-transcript-text="Second transcript line" data-start="2" data-end="4"></div>
+            </body>
+          </html>
+        `,
+        platform: "youtube"
+      }
+    });
+    const server = createLocalBridgeServer({
+      port: 0,
+      runtimeHandler: createRuntimeTaskHandler({
+        tempDir: path.join(root, "temp"),
+        vaultDir: path.join(root, "vault")
+      })
+    });
+
+    await server.start();
+    try {
+      await fetch(server.url("/tasks"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(task)
+      });
+
+      const finalRecord = await waitForTask(server, task.task_id);
+      expect(finalRecord.status).toBe("done");
+      expect(finalRecord.result?.answer?.file_path).toMatch(/^vault\/videos\/.+\.md$/);
+
+      const filePath = path.join(root, finalRecord.result.answer.file_path.replace(/^vault\//, "vault/"));
+      const savedMarkdown = await fs.readFile(filePath, "utf8");
+      expect(savedMarkdown).toContain("## Transcript");
+      expect(savedMarkdown).toContain("First transcript line");
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("returns need_confirmation when a video page has no transcript", async () => {
+    const root = createTempRoot();
+    const task = createTask({
+      task_id: "task_bridge_video_missing_transcript",
+      task_type: "summarize_video",
+      page: {
+        url: "https://www.youtube.com/watch?v=missing",
+        title: "Missing Transcript",
+        html: "<html><body><video></video></body></html>",
+        platform: "youtube"
+      }
+    });
+    const server = createLocalBridgeServer({
+      port: 0,
+      runtimeHandler: createRuntimeTaskHandler({
+        tempDir: path.join(root, "temp"),
+        vaultDir: path.join(root, "vault")
+      })
+    });
+
+    await server.start();
+    try {
+      await fetch(server.url("/tasks"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(task)
+      });
+
+      const finalRecord = await waitForTask(server, task.task_id);
+      expect(finalRecord.status).toBe("need_confirmation");
+      expect(finalRecord.result).toMatchObject({
+        status: "need_confirmation",
+        pendingToolCall: {
+          name: "ffmpeg_extract_audio"
+        }
+      });
+    } finally {
+      await server.stop();
+    }
+  });
 });
 
 async function waitForTask(

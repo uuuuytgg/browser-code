@@ -1,7 +1,14 @@
 import path from "node:path";
 
 import { createRegisteredTools, runAgentTask } from "@ska/runtime";
-import type { CaptureTask, RunAgentTaskResult, ToolResult, WebToMarkdownOutput, SaveMarkdownNoteOutput } from "@ska/schemas";
+import type {
+  CaptureTask,
+  FetchTranscriptOutput,
+  RunAgentTaskResult,
+  SaveMarkdownNoteOutput,
+  ToolResult,
+  WebToMarkdownOutput
+} from "@ska/schemas";
 
 type ToolMessagePayload = {
   name: string;
@@ -22,7 +29,11 @@ export function createRuntimeTaskHandler(
   const vaultDir = options.vaultDir ?? path.resolve("vault");
 
   return async (task) => {
-    if (task.task_type !== "save_page" && task.task_type !== "save_selection") {
+    if (
+      task.task_type !== "save_page"
+      && task.task_type !== "save_selection"
+      && task.task_type !== "summarize_video"
+    ) {
       return {
         status: "error",
         error: {
@@ -56,12 +67,59 @@ class LocalBridgeCaptureProvider {
       .map((message) => parseToolMessage(message.content))
       .filter((message): message is ToolMessagePayload => Boolean(message));
 
+    const transcriptResult = findToolResult<FetchTranscriptOutput>(toolMessages, "fetch_transcript");
     const webResult = findToolResult<WebToMarkdownOutput>(toolMessages, "web_to_markdown");
     const saveResult = findToolResult<SaveMarkdownNoteOutput>(toolMessages, "save_markdown_note");
 
     let parsed: unknown;
 
-    if (!webResult) {
+    if (this.task.task_type === "summarize_video" && !transcriptResult) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_1`,
+          name: "fetch_transcript",
+          input: {
+            url: this.task.page.url,
+            platform: this.task.page.platform,
+            html: this.task.page.html,
+            preferred_languages: ["zh-CN", "en"]
+          }
+        }
+      };
+    } else if (this.task.task_type === "summarize_video" && transcriptResult && !transcriptResult.ok) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_2`,
+          name: "ffmpeg_extract_audio",
+          input: {
+            input_path: path.join("temp", `${this.task.task_id}.video`),
+            output_format: "wav"
+          }
+        }
+      };
+    } else if (this.task.task_type === "summarize_video" && transcriptResult && !saveResult) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_3`,
+          name: "save_markdown_note",
+          input: {
+            markdown: buildTranscriptMarkdown(this.task, transcriptResult),
+            metadata: {
+              title: transcriptResult.metadata?.title ?? this.task.page.title,
+              source_url: this.task.page.url,
+              source_platform: transcriptResult.platform,
+              tags: ["summarize_video", transcriptResult.platform],
+              keywords: extractTranscriptKeywords(transcriptResult)
+            },
+            content_type: "video",
+            source_url: this.task.page.url
+          }
+        }
+      };
+    } else if (!webResult && this.task.task_type !== "summarize_video") {
       parsed = {
         type: "tool_call",
         tool_call: {
@@ -76,7 +134,7 @@ class LocalBridgeCaptureProvider {
           }
         }
       };
-    } else if (!saveResult) {
+    } else if (!saveResult && this.task.task_type !== "summarize_video" && webResult) {
       parsed = {
         type: "tool_call",
         tool_call: {
@@ -105,13 +163,22 @@ class LocalBridgeCaptureProvider {
           input: {}
         }
       };
+    } else if (saveResult) {
+      parsed = {
+        type: "final",
+        answer: {
+          message: this.task.task_type === "summarize_video"
+            ? "Video transcript saved to local vault."
+            : "Saved to local vault.",
+          note_id: saveResult.note_id,
+          file_path: saveResult.file_path
+        }
+      };
     } else {
       parsed = {
         type: "final",
         answer: {
-          message: "Saved to local vault.",
-          note_id: saveResult.note_id,
-          file_path: saveResult.file_path
+          message: "No further action available."
         }
       };
     }
@@ -150,4 +217,42 @@ function extractKeywords(result: WebToMarkdownOutput) {
   }
 
   return [...keywordSet].slice(0, 8);
+}
+
+function buildTranscriptMarkdown(task: CaptureTask, result: FetchTranscriptOutput) {
+  const transcriptText = (result.transcript ?? [])
+    .map((line) => `- [${formatSeconds(line.start)}] ${line.text}`)
+    .join("\n");
+
+  return [
+    `# ${result.metadata?.title ?? task.page.title}`,
+    "",
+    `Source: ${task.page.url}`,
+    `Platform: ${result.platform}`,
+    result.metadata?.uploader ? `Uploader: ${result.metadata.uploader}` : "",
+    "",
+    "## Transcript",
+    transcriptText
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function extractTranscriptKeywords(result: FetchTranscriptOutput) {
+  const text = (result.transcript ?? [])
+    .map((line) => line.text)
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 4)
+    .slice(0, 12);
+
+  return [...new Set(text)].slice(0, 8);
+}
+
+function formatSeconds(value: number) {
+  const minutes = Math.floor(value / 60);
+  const seconds = Math.floor(value % 60);
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
