@@ -8,7 +8,9 @@ import {
 } from "@ska/tool-resource";
 import {
   buildIndexToolSpec,
+  readNoteToolSpec,
   runBuildIndex,
+  runReadNote,
   runSaveMarkdownNote,
   runSearchVault,
   saveMarkdownNoteToolSpec,
@@ -91,6 +93,16 @@ export function createRegisteredTools(): ToolImplementation[] {
         ensureAllowedRead(context.vault_dir, [...context.allowed_read_roots, context.vault_dir]);
         return runSearchVault({
           ...(input as Parameters<typeof runSearchVault>[0]),
+          vaultDir: context.vault_dir
+        });
+      }
+    },
+    {
+      spec: readNoteToolSpec,
+      async execute(input, context) {
+        ensureAllowedRead(context.vault_dir, [...context.allowed_read_roots, context.vault_dir]);
+        return runReadNote({
+          ...(input as Parameters<typeof runReadNote>[0]),
           vaultDir: context.vault_dir
         });
       }

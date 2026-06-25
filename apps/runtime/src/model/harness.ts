@@ -4,12 +4,13 @@ import { fileURLToPath } from "node:url";
 
 import type { CaptureTask } from "@ska/schemas";
 
+import { resolveRepoRoot } from "../repo-root";
 import type { SessionMessage } from "../session/session-store";
 import type { ToolSpec } from "../tools/types";
 import type { ModelGenerateInput } from "./provider";
 
 const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(runtimeDir, "..", "..", "..", "..");
+const repoRoot = resolveRepoRoot(runtimeDir);
 const systemPromptPath = path.join(repoRoot, "prompts", "system.knowledge-agent.md");
 
 export async function readSystemPrompt() {

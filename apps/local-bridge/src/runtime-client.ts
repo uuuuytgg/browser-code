@@ -7,6 +7,7 @@ import type {
   ResourceItem,
   RunAgentTaskResult,
   ScanResourcesOutput,
+  SearchVaultResult,
   SaveMarkdownNoteOutput,
   ToolResult,
   WebToMarkdownOutput
@@ -36,12 +37,13 @@ export function createRuntimeTaskHandler(
       && task.task_type !== "save_selection"
       && task.task_type !== "summarize_video"
       && task.task_type !== "scan_resources"
+      && task.task_type !== "search_vault"
     ) {
       return {
         status: "error",
         error: {
           code: "TASK_TYPE_NOT_IMPLEMENTED",
-          message: `Task type ${task.task_type} is not implemented in Stage 10 bridge runtime handler`
+          message: `Task type ${task.task_type} is not implemented in Stage 11 bridge runtime handler`
         }
       };
     }
@@ -72,12 +74,36 @@ class LocalBridgeCaptureProvider {
 
     const transcriptResult = findToolResult<FetchTranscriptOutput>(toolMessages, "fetch_transcript");
     const scanResult = findToolResult<ScanResourcesOutput>(toolMessages, "scan_page_resources");
+    const searchResults = findToolResult<SearchVaultResult[]>(toolMessages, "search_vault");
     const webResult = findToolResult<WebToMarkdownOutput>(toolMessages, "web_to_markdown");
     const saveResult = findToolResult<SaveMarkdownNoteOutput>(toolMessages, "save_markdown_note");
 
     let parsed: unknown;
 
-    if (this.task.task_type === "scan_resources" && !scanResult) {
+    if (this.task.task_type === "search_vault" && !searchResults) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_1`,
+          name: "search_vault",
+          input: {
+            query: this.task.user_instruction ?? this.task.page.selected_text ?? this.task.page.title,
+            limit: 5
+          }
+        }
+      };
+    } else if (this.task.task_type === "search_vault" && searchResults) {
+      parsed = {
+        type: "final",
+        answer: {
+          message: searchResults.length > 0
+            ? `Found ${searchResults.length} matching notes.`
+            : "No matching notes found.",
+          result_count: searchResults.length,
+          results: searchResults
+        }
+      };
+    } else if (this.task.task_type === "scan_resources" && !scanResult) {
       parsed = {
         type: "tool_call",
         tool_call: {
@@ -182,7 +208,11 @@ class LocalBridgeCaptureProvider {
           }
         }
       };
-    } else if (!findToolResult(toolMessages, "build_index")) {
+    } else if (
+      this.task.task_type !== "scan_resources"
+      && this.task.task_type !== "search_vault"
+      && !findToolResult(toolMessages, "build_index")
+    ) {
       parsed = {
         type: "tool_call",
         tool_call: {

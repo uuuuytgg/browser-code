@@ -1,5 +1,7 @@
 import type {
   AgentMode,
+  ReadNoteInput,
+  ReadNoteOutput,
   SaveMarkdownNoteInput,
   SaveMarkdownNoteOutput,
   SearchVaultInput,
@@ -8,6 +10,8 @@ import type {
   VaultIndex
 } from "@ska/schemas";
 import {
+  ReadNoteInputSchema,
+  ReadNoteOutputSchema,
   SaveMarkdownNoteInputSchema,
   SaveMarkdownNoteOutputSchema,
   SearchVaultInputSchema,
@@ -22,7 +26,7 @@ import { searchVault } from "./search-vault";
 
 export const toolVaultPackageInfo = {
   name: "@ska/tool-vault",
-  stage: 3,
+  stage: 11,
   placeholderTools: [
     {
       name: "save_markdown_note",
@@ -38,6 +42,12 @@ export const toolVaultPackageInfo = {
     },
     {
       name: "search_vault",
+      risk: "low" as ToolRisk,
+      agent_modes: ["reader", "librarian"] as AgentMode[],
+      implemented: true
+    },
+    {
+      name: "read_note",
       risk: "low" as ToolRisk,
       agent_modes: ["reader", "librarian"] as AgentMode[],
       implemented: true
@@ -68,8 +78,17 @@ export const searchVaultToolSpec = {
   description: "Search the local vault using title, tags, keywords, and body text.",
   risk: "low" as ToolRisk,
   agent_modes: ["reader", "librarian"] as AgentMode[],
-  input_schema: SearchVaultInputSchema,
+  input_schema: SearchVaultInputSchema.omit({ vaultDir: true }),
   output_schema: SearchVaultResultSchema.array()
+} as const;
+
+export const readNoteToolSpec = {
+  name: "read_note",
+  description: "Read a single vault note by relative path.",
+  risk: "low" as ToolRisk,
+  agent_modes: ["reader", "librarian"] as AgentMode[],
+  input_schema: ReadNoteInputSchema.omit({ vaultDir: true }),
+  output_schema: ReadNoteOutputSchema
 } as const;
 
 export async function runSaveMarkdownNote(
@@ -85,6 +104,15 @@ export async function runBuildIndex(options: { vaultDir: string }): Promise<Vaul
 
 export async function runSearchVault(input: SearchVaultInput): Promise<SearchVaultResult[]> {
   return searchVault(input);
+}
+
+export async function runReadNote(input: ReadNoteInput): Promise<ReadNoteOutput> {
+  const parsed = ReadNoteInputSchema.parse(input);
+  const content = await readNote(parsed.vaultDir, parsed.relativePath);
+  return ReadNoteOutputSchema.parse({
+    path: parsed.relativePath,
+    content
+  });
 }
 
 export { buildIndex, readIndexFile, readNote, saveMarkdownNote, searchVault };

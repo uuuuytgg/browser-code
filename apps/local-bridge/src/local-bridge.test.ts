@@ -190,7 +190,8 @@ describe("local bridge server", () => {
     const root = createTempRoot();
     const task = createTask({
       task_id: "task_bridge_search",
-      task_type: "search_vault"
+      task_type: "search_vault",
+      user_instruction: "react performance"
     });
     const server = createLocalBridgeServer({
       port: 0,
@@ -211,11 +212,11 @@ describe("local bridge server", () => {
       });
 
       const finalRecord = await waitForTask(server, task.task_id);
-      expect(finalRecord.status).toBe("error");
+      expect(finalRecord.status).toBe("done");
       expect(finalRecord.result).toMatchObject({
-        status: "error",
-        error: {
-          code: "TASK_TYPE_NOT_IMPLEMENTED"
+        status: "done",
+        answer: {
+          result_count: 0
         }
       });
     } finally {
@@ -366,6 +367,65 @@ describe("local bridge server", () => {
 
       const assetDir = path.join(root, "vault", "assets");
       await expect(fs.access(assetDir)).rejects.toThrow();
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("searches the vault through the bridge and returns matching notes", async () => {
+    const root = createTempRoot();
+    const seedTask = createTask({
+      task_id: "task_bridge_seed_note",
+      task_type: "save_page",
+      page: {
+        url: "https://example.com/react-performance",
+        title: "React Performance Guide",
+        html: "<html><body><article>React performance tuning strategies for rendering.</article></body></html>",
+        platform: "web"
+      }
+    });
+    const searchTask = createTask({
+      task_id: "task_bridge_search_results",
+      task_type: "search_vault",
+      page: {
+        url: "https://example.com/search",
+        title: "Search Vault",
+        html: "<html><body></body></html>",
+        platform: "web"
+      },
+      user_instruction: "react performance"
+    });
+    const server = createLocalBridgeServer({
+      port: 0,
+      runtimeHandler: createRuntimeTaskHandler({
+        tempDir: path.join(root, "temp"),
+        vaultDir: path.join(root, "vault")
+      })
+    });
+
+    await server.start();
+    try {
+      await fetch(server.url("/tasks"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(seedTask)
+      });
+      await waitForTask(server, seedTask.task_id);
+
+      await fetch(server.url("/tasks"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(searchTask)
+      });
+
+      const finalRecord = await waitForTask(server, searchTask.task_id);
+      expect(finalRecord.status).toBe("done");
+      expect(finalRecord.result?.answer?.result_count).toBeGreaterThan(0);
+      expect(finalRecord.result?.answer?.results?.[0]?.title).toContain("React Performance");
     } finally {
       await server.stop();
     }

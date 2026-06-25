@@ -26,6 +26,12 @@
       "implemented": true
     },
     {
+      "name": "read_note",
+      "risk": "low",
+      "agent_modes": ["reader", "librarian"],
+      "implemented": true
+    },
+    {
       "name": "fetch_transcript",
       "risk": "low",
       "agent_modes": ["media"],

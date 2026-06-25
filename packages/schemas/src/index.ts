@@ -205,6 +205,18 @@ export const SearchVaultResultSchema = z.object({
 });
 export type SearchVaultResult = z.infer<typeof SearchVaultResultSchema>;
 
+export const ReadNoteInputSchema = z.object({
+  vaultDir: z.string().min(1),
+  relativePath: z.string().min(1)
+});
+export type ReadNoteInput = z.infer<typeof ReadNoteInputSchema>;
+
+export const ReadNoteOutputSchema = z.object({
+  path: z.string().min(1),
+  content: z.string()
+});
+export type ReadNoteOutput = z.infer<typeof ReadNoteOutputSchema>;
+
 export const TranscriptLineSchema = z.object({
   start: z.number().nonnegative(),
   end: z.number().nonnegative().optional(),

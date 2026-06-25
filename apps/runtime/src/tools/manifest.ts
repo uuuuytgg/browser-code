@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { AgentMode, ToolRisk } from "@ska/schemas";
 
+import { resolveRepoRoot } from "../repo-root";
+
 const ToolManifestEntrySchema = z.object({
   name: z.string().min(1),
   risk: z.enum(["low", "medium", "high", "critical"]),
@@ -22,7 +24,7 @@ export type ToolManifestEntry = z.infer<typeof ToolManifestEntrySchema>;
 export type ToolManifest = z.infer<typeof ToolManifestSchema>;
 
 const toolsDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(toolsDir, "..", "..", "..", "..");
+const repoRoot = resolveRepoRoot(toolsDir);
 const defaultManifestPath = path.join(repoRoot, "tool-manifests", "tools.json");
 
 export function loadToolManifest(manifestPath = defaultManifestPath) {
