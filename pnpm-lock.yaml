@@ -90,9 +90,15 @@ importers:
 
   apps/mcp-server:
     dependencies:
+      '@ska/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@ska/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@ska/tool-vault':
+        specifier: workspace:*
+        version: link:../../packages/tool-vault
 
   apps/runtime:
     dependencies:
