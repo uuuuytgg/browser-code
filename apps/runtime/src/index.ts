@@ -1,4 +1,6 @@
 import { runAgentTask } from "./agent/task-runner";
+import { createRuntimeAgent, RuntimeAgent } from "./agent/loop";
+import { resolveRuntimeConfig } from "./config";
 import { buildHarnessInput, buildTaskInstruction, readSystemPrompt } from "./model/harness";
 import { MockModelProvider } from "./model/mock-provider";
 import { AnthropicProvider } from "./model/anthropic";
@@ -11,7 +13,7 @@ import { OpenAIProvider } from "./model/openai";
 export const runtimeAppInfo = {
   name: "@ska/runtime",
   displayName: "Sidebar Knowledge Agent Runtime",
-  stage: 6,
+  stage: 13,
   businessLogicImplemented: true
 } as const;
 
@@ -21,12 +23,15 @@ export {
   DeepSeekProvider,
   MockModelProvider,
   OpenAIProvider,
+  RuntimeAgent,
   buildHarnessInput,
   buildTaskInstruction,
+  createRuntimeAgent,
   createProvider,
   createProviderFromEnv,
   createRegisteredTools,
   createStage1MockTools,
+  resolveRuntimeConfig,
   readSystemPrompt
 };
 

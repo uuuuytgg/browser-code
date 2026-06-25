@@ -23,6 +23,8 @@ type RunAgentTaskOptions = {
   tools: ToolImplementation[];
   tempDir: string;
   vaultDir: string;
+  sessionDir?: string;
+  maxStepsOverride?: number;
 };
 
 export async function runAgentTask(
@@ -31,12 +33,21 @@ export async function runAgentTask(
 ): Promise<RunAgentTaskResult> {
   const task = CaptureTaskSchema.parse(rawTask);
   const mode = inferAgentMode(task);
-  const maxSteps = getMaxStepsForTask(task);
+  const maxSteps = options.maxStepsOverride ?? getMaxStepsForTask(task);
   const registry = new ToolRegistry(options.tools);
   const router = new ToolRouter(registry);
   const permissionGuard = new PermissionGuard();
-  const sessionStore = new SessionStore(path.join(options.tempDir, "sessions"), task.task_id);
+  const sessionStore = new SessionStore(options.sessionDir ?? path.join(options.tempDir, "sessions"), task.task_id);
 
+  await sessionStore.addEvent("session_started", {
+    session_id: task.task_id,
+    task_id: task.task_id,
+    mode,
+    provider: options.provider.name,
+    temp_dir: options.tempDir,
+    vault_dir: options.vaultDir,
+    max_steps: maxSteps
+  });
   await sessionStore.addEvent("task_received", { task, mode, maxSteps });
 
   for (let step = 0; step < maxSteps; step += 1) {

@@ -9,6 +9,7 @@ export type SessionMessage = {
 };
 
 type SessionEvent =
+  | "session_started"
   | "task_received"
   | "model_output"
   | "tool_result"

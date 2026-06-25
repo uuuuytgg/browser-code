@@ -7,7 +7,9 @@ import { z } from "zod";
 import type { AgentMode, CaptureTask } from "@ska/schemas";
 
 import { inferAgentMode, getMaxStepsForTask } from "./agent/agent-modes";
+import { createRuntimeAgent } from "./agent/loop";
 import { runAgentTask } from "./agent/task-runner";
+import { resolveRuntimeConfig } from "./config";
 import { MockModelProvider } from "./model/mock-provider";
 import { PermissionGuard } from "./tools/permission";
 import { createStage1MockTools } from "./tools/mock-tools";
@@ -47,6 +49,26 @@ describe("agent mode inference", () => {
   it("maps task types to the expected agent mode", () => {
     expect(inferAgentMode(createSavePageTask())).toBe("curator");
     expect(getMaxStepsForTask(createSavePageTask())).toBe(6);
+  });
+});
+
+describe("resolveRuntimeConfig", () => {
+  it("resolves runtime paths and provider settings from env", () => {
+    const config = resolveRuntimeConfig(
+      {
+        SKA_MODEL_PROVIDER: "openai",
+        SKA_TEMP_DIR: "./tmp-runtime",
+        SKA_VAULT_DIR: "./vault-runtime",
+        SKA_MAX_STEPS: "9"
+      },
+      "D:/repo"
+    );
+
+    expect(config.provider).toBe("openai");
+    expect(config.tempDir).toBe(path.resolve("D:/repo", "./tmp-runtime"));
+    expect(config.vaultDir).toBe(path.resolve("D:/repo", "./vault-runtime"));
+    expect(config.sessionDir).toBe(path.resolve("D:/repo", "./tmp-runtime", "sessions"));
+    expect(config.maxStepsOverride).toBe(9);
   });
 });
 
@@ -109,6 +131,7 @@ describe("runAgentTask", () => {
 
     const sessionLogPath = path.join(tempRoot, "temp", "sessions", `${task.task_id}.jsonl`);
     const sessionLog = await fs.readFile(sessionLogPath, "utf8");
+    expect(sessionLog).toContain("\"event\":\"session_started\"");
     expect(sessionLog).toContain("\"event\":\"task_received\"");
     expect(sessionLog).toContain("\"event\":\"tool_result\"");
     expect(sessionLog).toContain("\"event\":\"final\"");
@@ -179,6 +202,38 @@ describe("runAgentTask", () => {
 
     expect(result.status).toBe("error");
     expect(result.error?.code).toBe("MAX_STEPS_EXCEEDED");
+  });
+});
+
+describe("RuntimeAgent", () => {
+  it("uses runtime config and provider defaults through the dedicated loop wrapper", async () => {
+    const tempRoot = createTempRoot();
+    const task = createSavePageTask();
+    const agent = createRuntimeAgent({
+      config: {
+        provider: "mock",
+        tempDir: path.join(tempRoot, "temp"),
+        vaultDir: path.join(tempRoot, "vault"),
+        sessionDir: path.join(tempRoot, "temp", "sessions")
+      },
+      tools: createStage1MockTools(),
+      mockOutputs: [
+        {
+          type: "final",
+          answer: {
+            message: "Loop wrapper complete.",
+            note_id: "loop_wrapper_note",
+            file_path: "vault/articles/loop-wrapper.md"
+          }
+        }
+      ]
+    });
+
+    const result = await agent.runTask(task);
+    expect(result.status).toBe("done");
+    expect(result.answer).toMatchObject({
+      note_id: "loop_wrapper_note"
+    });
   });
 });
 
