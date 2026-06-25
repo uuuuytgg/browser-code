@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@ska/extension": ["apps/extension/src/index.ts"],
+      "@ska/local-bridge": ["apps/local-bridge/src/index.ts"],
+      "@ska/runtime": ["apps/runtime/src/index.ts"],
+      "@ska/mcp-server": ["apps/mcp-server/src/index.ts"],
+      "@ska/schemas": ["packages/schemas/src/index.ts"],
+      "@ska/shared": ["packages/shared/src/index.ts"],
+      "@ska/tool-web": ["packages/tool-web/src/index.ts"],
+      "@ska/tool-video": ["packages/tool-video/src/index.ts"],
+      "@ska/tool-resource": ["packages/tool-resource/src/index.ts"],
+      "@ska/tool-vault": ["packages/tool-vault/src/index.ts"]
+    }
+  },
+  "exclude": ["dist", "node_modules"]
+}
