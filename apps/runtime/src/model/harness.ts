@@ -47,7 +47,10 @@ export function buildToolSummary(tools: ToolSpec[]) {
 export async function buildHarnessInput(
   task: CaptureTask,
   sessionMessages: SessionMessage[],
-  tools: ToolSpec[]
+  tools: ToolSpec[],
+  options: {
+    knownTags?: string[];
+  } = {}
 ): Promise<ModelGenerateInput> {
   const system = await readSystemPrompt();
 
@@ -77,6 +80,7 @@ export async function buildHarnessInput(
               }
             },
             allowed_tools: buildToolSummary(tools),
+            known_tags: options.knownTags ?? [],
             task
           },
           null,

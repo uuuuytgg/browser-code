@@ -9,6 +9,7 @@ import { findExistingNoteBySourceUrl } from "./dedupe";
 import { createNoteFilename, createNoteId } from "./filename";
 import { buildFrontmatter } from "./frontmatter";
 import { getContentDirectory } from "./paths";
+import { normalizeTags, updateTagVocabulary } from "./tag-policy";
 
 type SaveOptions = {
   vaultDir: string;
@@ -32,6 +33,11 @@ export async function saveMarkdownNote(input: SaveMarkdownNoteInput, options: Sa
   const filename = createNoteFilename(parsed.metadata.title, parsed.source_url, timestamp);
   const directory = getContentDirectory(options.vaultDir, parsed.content_type);
   const absolutePath = path.join(directory, filename);
+  const normalizedTags = await normalizeTags(parsed.metadata.tags ?? [], {
+    vaultDir: options.vaultDir,
+    contentType: parsed.content_type,
+    maxTags: 5
+  });
 
   const markdownWithFrontmatter = buildFrontmatter(parsed.markdown, {
     id: noteId,
@@ -41,7 +47,7 @@ export async function saveMarkdownNote(input: SaveMarkdownNoteInput, options: Sa
     content_type: parsed.content_type,
     created_at: timestamp,
     captured_at: timestamp,
-    tags: parsed.metadata.tags ?? [],
+    tags: normalizedTags.canonical,
     keywords: parsed.metadata.keywords ?? [],
     status: "processed",
     assets: [],
@@ -50,6 +56,7 @@ export async function saveMarkdownNote(input: SaveMarkdownNoteInput, options: Sa
 
   await fs.mkdir(directory, { recursive: true });
   await fs.writeFile(absolutePath, markdownWithFrontmatter, "utf8");
+  await updateTagVocabulary(normalizedTags.canonical, options.vaultDir, timestamp);
   await buildIndex({ vaultDir: options.vaultDir });
 
   return SaveMarkdownNoteOutputSchema.parse({

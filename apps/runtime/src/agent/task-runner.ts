@@ -51,7 +51,14 @@ export async function runAgentTask(
   await sessionStore.addEvent("task_received", { task, mode, maxSteps });
 
   for (let step = 0; step < maxSteps; step += 1) {
-    const context = await buildContext(task, sessionStore.messages, registry.getToolsForMode(mode).map((tool) => tool.spec));
+    const context = await buildContext(
+      task,
+      sessionStore.messages,
+      registry.getToolsForMode(mode).map((tool) => tool.spec),
+      {
+        vaultDir: options.vaultDir
+      }
+    );
     const output = await options.provider.generate(context);
     await sessionStore.addEvent("model_output", { raw: output.raw, parsed: output.parsed });
 

@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { buildIndex, readIndexFile, saveMarkdownNote, searchVault } from "./index";
+import { buildIndex, ensureTagSupportFiles, readIndexFile, readTopTags, saveMarkdownNote, searchVault } from "./index";
 
 const tempRoots: string[] = [];
 
@@ -48,7 +48,7 @@ describe("saveMarkdownNote", () => {
           title: "Example Article",
           source_url: "https://example.com/posts/1",
           source_platform: "web",
-          tags: ["example"],
+          tags: ["Example", "article"],
           keywords: ["article"]
         },
         content_type: "article",
@@ -64,6 +64,8 @@ describe("saveMarkdownNote", () => {
     const fileContent = await fs.readFile(absolutePath, "utf8");
 
     expect(fileContent).toContain('source_url: "https://example.com/posts/1"');
+    expect(fileContent).toContain("tags:\n  - \"example\"\nkeywords:\n  - \"article\"");
+    expect(fileContent).not.toContain("tags:\n  - \"example\"\n  - \"article\"");
     expect(fileContent).toContain("# Example Article");
   });
 
@@ -130,6 +132,36 @@ describe("buildIndex", () => {
 
     const savedIndex = await readIndexFile({ vaultDir });
     expect(savedIndex.notes).toHaveLength(1);
+  });
+});
+
+describe("tag normalization", () => {
+  it("creates tag support files and reuses canonical tags in the vocabulary", async () => {
+    const vaultDir = createVaultRoot();
+    await ensureVaultDirs(vaultDir);
+    await ensureTagSupportFiles(vaultDir);
+
+    await saveMarkdownNote(
+      {
+        markdown: "# React Guide\n\nUsing React effectively.",
+        metadata: {
+          title: "React Guide",
+          source_url: "https://example.com/react-guide",
+          tags: ["React.js", "Front End", "2026", "tutorial", "AI"],
+          keywords: ["react", "frontend"]
+        },
+        content_type: "article",
+        source_url: "https://example.com/react-guide"
+      },
+      { vaultDir }
+    );
+
+    const topTags = await readTopTags(vaultDir, 10);
+    expect(topTags).toContain("react");
+    expect(topTags).toContain("frontend");
+    expect(topTags).toContain("ai");
+    expect(topTags).not.toContain("2026");
+    expect(topTags).not.toContain("tutorial");
   });
 });
 

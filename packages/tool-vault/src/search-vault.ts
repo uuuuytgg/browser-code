@@ -6,6 +6,7 @@ import { SearchVaultInputSchema, SearchVaultResultSchema } from "@ska/schemas";
 
 import { parseMarkdownNote } from "./frontmatter";
 import { readIndexFile } from "./build-index";
+import { normalizeTags, sanitizeTag } from "./tag-policy";
 
 function tokenize(query: string) {
   return query
@@ -22,6 +23,14 @@ function scoreMatches(tokens: string[], haystack: string[], weight: number) {
 export async function searchVault(input: SearchVaultInput): Promise<SearchVaultResult[]> {
   const parsed = SearchVaultInputSchema.parse(input);
   const tokens = tokenize(parsed.query);
+  const normalizedQueryTags = await normalizeTags(
+    tokens.map((token) => sanitizeTag(token)),
+    {
+      vaultDir: parsed.vaultDir,
+      contentType: "search-query",
+      maxTags: 10
+    }
+  );
   const index = await readIndexFile({ vaultDir: parsed.vaultDir });
 
   const results: SearchVaultResult[] = [];
@@ -34,7 +43,7 @@ export async function searchVault(input: SearchVaultInput): Promise<SearchVaultR
 
     const score =
       scoreMatches(tokens, [note.title.toLowerCase()], 5) +
-      scoreMatches(tokens, note.tags.map((tag) => tag.toLowerCase()), 4) +
+      scoreMatches(normalizedQueryTags.canonical, note.tags.map((tag) => tag.toLowerCase()), 4) +
       scoreMatches(tokens, note.keywords.map((keyword) => keyword.toLowerCase()), 3) +
       scoreMatches(tokens, [body], 1);
 

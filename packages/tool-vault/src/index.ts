@@ -23,10 +23,11 @@ import { buildIndex, readIndexFile } from "./build-index";
 import { readNote } from "./read-note";
 import { saveMarkdownNote } from "./save-note";
 import { searchVault } from "./search-vault";
+import { ensureTagSupportFiles, normalizeTags, readTopTags, sanitizeTag, updateTagVocabulary } from "./tag-policy";
 
 export const toolVaultPackageInfo = {
   name: "@ska/tool-vault",
-  stage: 11,
+  stage: 17,
   placeholderTools: [
     {
       name: "save_markdown_note",
@@ -115,4 +116,15 @@ export async function runReadNote(input: ReadNoteInput): Promise<ReadNoteOutput>
   });
 }
 
-export { buildIndex, readIndexFile, readNote, saveMarkdownNote, searchVault };
+export {
+  buildIndex,
+  ensureTagSupportFiles,
+  normalizeTags,
+  readIndexFile,
+  readNote,
+  readTopTags,
+  sanitizeTag,
+  saveMarkdownNote,
+  searchVault,
+  updateTagVocabulary
+};

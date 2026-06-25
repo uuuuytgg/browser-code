@@ -18,6 +18,18 @@ export function getIndexPath(vaultDir: string) {
   return indexPath;
 }
 
+export function getTagVocabularyPath(vaultDir: string) {
+  const vocabularyPath = path.join(vaultDir, "index", "tag-vocabulary.json");
+  assertInsideRoot(vocabularyPath, [vaultDir]);
+  return vocabularyPath;
+}
+
+export function getTagRulesPath(vaultDir: string) {
+  const rulesPath = path.join(vaultDir, "index", "tag-rules.json");
+  assertInsideRoot(rulesPath, [vaultDir]);
+  return rulesPath;
+}
+
 export function getContentDirectory(vaultDir: string, contentType: string) {
   const directoryMap: Record<string, string> = {
     article: "articles",
