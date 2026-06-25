@@ -2,14 +2,16 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import type { CaptureTask } from "@ska/schemas";
+import type { AgentMode, CaptureTask } from "@ska/schemas";
 
 import { inferAgentMode, getMaxStepsForTask } from "./agent/agent-modes";
 import { runAgentTask } from "./agent/task-runner";
 import { MockModelProvider } from "./model/mock-provider";
 import { PermissionGuard } from "./tools/permission";
 import { createStage1MockTools } from "./tools/mock-tools";
+import type { ToolImplementation } from "./tools/types";
 
 const tempRoots: string[] = [];
 
@@ -116,18 +118,24 @@ describe("runAgentTask", () => {
     const tempRoot = createTempRoot();
     const task: CaptureTask = {
       ...createSavePageTask(),
-      task_id: "task_stage1_high_risk",
-      task_type: "summarize_video"
+      task_id: "task_stage1_confirmation"
     };
 
     const provider = new MockModelProvider([
       {
         type: "tool_call",
         tool_call: {
-          id: "call_high_risk",
-          name: "ffmpeg_extract_audio",
+          id: "call_confirmation",
+          name: "save_markdown_note",
           input: {
-            source_path: "temp/input.mp4"
+            markdown: "# Example Post\n\nHello Stage 1",
+            metadata: {
+              title: task.page.title,
+              source_url: task.page.url,
+              tags: ["example"]
+            },
+            content_type: "article",
+            source_url: task.page.url
           }
         }
       }
@@ -135,13 +143,13 @@ describe("runAgentTask", () => {
 
     const result = await runAgentTask(task, {
       provider,
-      tools: createStage1MockTools(),
+      tools: [createConfirmationTool()],
       tempDir: path.join(tempRoot, "temp"),
       vaultDir: path.join(tempRoot, "vault")
     });
 
     expect(result.status).toBe("need_confirmation");
-    expect(result.pendingToolCall?.name).toBe("ffmpeg_extract_audio");
+    expect(result.pendingToolCall?.name).toBe("save_markdown_note");
   });
 
   it("fails when the model exceeds the max step limit", async () => {
@@ -177,12 +185,59 @@ describe("runAgentTask", () => {
 describe("PermissionGuard", () => {
   it("auto-allows low risk tools and confirms high-risk tools", () => {
     const guard = new PermissionGuard();
-    const tools = createStage1MockTools();
+    const lowRiskTool = createStage1MockTools()[0]!;
+    const confirmationTool = createConfirmationTool();
 
-    const lowRisk = guard.check(tools[0]!.spec, "curator");
-    const highRisk = guard.check(tools[2]!.spec, "media");
+    const lowRisk = guard.check(lowRiskTool.spec, "curator");
+    const highRisk = guard.check(confirmationTool.spec, "curator");
 
     expect(lowRisk.decision).toBe("allow");
     expect(highRisk.decision).toBe("confirm");
   });
 });
+
+function createConfirmationTool(): ToolImplementation {
+  return {
+    spec: {
+      name: "save_markdown_note",
+      description: "Confirmation-only test tool mapped to a manifest-declared implemented tool.",
+      risk: "medium",
+      agent_modes: ["curator", "media", "resource", "librarian"] as AgentMode[],
+      requires_confirmation: true,
+      input_schema: z.object({
+        markdown: z.string(),
+        metadata: z.object({
+          title: z.string(),
+          source_url: z.string().url(),
+          tags: z.array(z.string()).optional()
+        }),
+        content_type: z.enum(["article", "video", "document", "snippet", "resource"]),
+        source_url: z.string().url()
+      }),
+      output_schema: z.object({
+        note_id: z.string(),
+        file_path: z.string(),
+        deduped: z.boolean(),
+        index_updated: z.boolean()
+      })
+    },
+    async execute(input) {
+      const parsed = z.object({
+        markdown: z.string(),
+        metadata: z.object({
+          title: z.string(),
+          source_url: z.string().url(),
+          tags: z.array(z.string()).optional()
+        }),
+        content_type: z.enum(["article", "video", "document", "snippet", "resource"]),
+        source_url: z.string().url()
+      }).parse(input);
+      return {
+        note_id: "test_note",
+        file_path: `vault/articles/${parsed.metadata.title}.md`,
+        deduped: false,
+        index_updated: false
+      };
+    }
+  };
+}

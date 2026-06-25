@@ -30,6 +30,12 @@ export class PermissionGuard {
       };
     }
 
+    if (spec.risk === "medium") {
+      return {
+        decision: "allow"
+      };
+    }
+
     return {
       decision: "allow"
     };

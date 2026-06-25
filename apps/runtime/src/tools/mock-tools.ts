@@ -24,14 +24,6 @@ const saveMarkdownNoteOutputSchema = z.object({
   index_updated: z.boolean()
 });
 
-const ffmpegExtractAudioInputSchema = z.object({
-  source_path: z.string().min(1)
-});
-
-const ffmpegExtractAudioOutputSchema = z.object({
-  audio_path: z.string()
-});
-
 function stripHtml(html: string) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -81,23 +73,6 @@ export function createStage1MockTools(): ToolImplementation[] {
           file_path: `vault/articles/${slug || "note"}.md`,
           deduped: false,
           index_updated: false
-        };
-      }
-    },
-    {
-      spec: {
-        name: "ffmpeg_extract_audio",
-        description: "Mock high-risk media extraction tool placeholder.",
-        risk: "high",
-        agent_modes: ["media"],
-        requires_confirmation: true,
-        input_schema: ffmpegExtractAudioInputSchema,
-        output_schema: ffmpegExtractAudioOutputSchema
-      },
-      async execute(input) {
-        const parsed = ffmpegExtractAudioInputSchema.parse(input);
-        return {
-          audio_path: `${parsed.source_path}.wav`
         };
       }
     }
