@@ -9,7 +9,10 @@
     "dev": "pnpm --filter @ska/runtime dev",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
-    "rebuild-index": "tsx scripts/rebuild-index.ts"
+    "rebuild-index": "tsx scripts/rebuild-index.ts",
+    "package:agent": "node ./node_modules/tsup/dist/cli-default.js apps/local-bridge/src/index.ts --no-config --format cjs --dts --out-dir apps/local-bridge/dist-release --no-splitting --platform node --target node20 && tsx scripts/package-agent.ts && npm pack ./release/browser-code --pack-destination ./release",
+    "package:extension": "pnpm --filter @ska/extension build && powershell -ExecutionPolicy Bypass -File scripts/package-extension.ps1",
+    "package:release": "pnpm package:agent && pnpm package:extension"
   },
   "devDependencies": {
     "@types/node": "^24.0.10",

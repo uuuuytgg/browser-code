@@ -12,11 +12,11 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
+    "build": "tsup src/index.ts --format esm --dts --clean --no-splitting --platform node --target node20",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
+  "devDependencies": {
     "@ska/runtime": "workspace:*",
     "@ska/schemas": "workspace:*",
     "@ska/shared": "workspace:*"

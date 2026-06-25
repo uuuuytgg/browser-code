@@ -7,7 +7,7 @@ import type { BridgeTaskStatus, CaptureTaskType, PageContext } from "../capture/
 
 export const extensionAppInfo = {
   name: "@ska/extension",
-  displayName: "Sidebar Knowledge Agent Extension",
+  displayName: "Browser Code Extension",
   stage: 4,
   version: skaVersion
 } as const;
@@ -73,7 +73,7 @@ export function AppStage4() {
 
   return (
     <main>
-      <h1>Sidebar Knowledge Agent</h1>
+      <h1>Browser Code</h1>
       <p>Capture the current page and send a controlled task to the local bridge.</p>
       <p>Status: {status}</p>
       <p>{message}</p>

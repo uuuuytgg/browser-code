@@ -12,7 +12,7 @@ import { OpenAIProvider } from "./model/openai";
 
 export const runtimeAppInfo = {
   name: "@ska/runtime",
-  displayName: "Sidebar Knowledge Agent Runtime",
+  displayName: "Browser Code Runtime",
   stage: 13,
   businessLogicImplemented: true
 } as const;

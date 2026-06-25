@@ -8,7 +8,7 @@ import { VaultClient } from "./vault-client";
 
 export const mcpServerAppInfo = {
   name: "@ska/mcp-server",
-  displayName: "Sidebar Knowledge Agent MCP Server",
+  displayName: "Browser Code MCP Server",
   stage: 12,
   businessLogicImplemented: true,
   defaultAccess: "read-only",

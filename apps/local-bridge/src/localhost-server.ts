@@ -46,7 +46,7 @@ export function createLocalBridgeServer(
       if (request.method === "GET" && request.url === "/health") {
         return sendJson(response, 200, BridgeHealthSchema.parse({
           ok: true,
-          name: "sidebar-knowledge-agent-bridge",
+          name: "browser-code-local-bridge",
           version: skaVersion
         }));
       }

@@ -2,7 +2,7 @@ import { skaVersion } from "@ska/shared";
 
 export const extensionAppInfo = {
   name: "@ska/extension",
-  displayName: "Sidebar Knowledge Agent Extension",
+  displayName: "Browser Code Extension",
   stage: 0,
   version: skaVersion
 } as const;
@@ -18,7 +18,7 @@ const actionLabels = [
 export function App() {
   return (
     <main>
-      <h1>Sidebar Knowledge Agent</h1>
+      <h1>Browser Code</h1>
       <p>Stage 0 placeholder UI. No capture or bridge behavior is implemented yet.</p>
       <ul>
         {actionLabels.map((label) => (

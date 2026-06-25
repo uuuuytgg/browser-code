@@ -1,8 +1,10 @@
 node_modules/
 dist/
+apps/local-bridge/dist-release/
 .pnpm-store/
 coverage/
 temp/
+release/
 .env
 .DS_Store
 *.log

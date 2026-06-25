@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 import type { AgentMode, ToolRisk } from "@ska/schemas";
 
+import { resolveModuleDir } from "../module-path";
 import { resolveRepoRoot } from "../repo-root";
 
 const ToolManifestEntrySchema = z.object({
@@ -23,7 +23,7 @@ const ToolManifestSchema = z.object({
 export type ToolManifestEntry = z.infer<typeof ToolManifestEntrySchema>;
 export type ToolManifest = z.infer<typeof ToolManifestSchema>;
 
-const toolsDir = path.dirname(fileURLToPath(import.meta.url));
+const toolsDir = resolveModuleDir(import.meta.url);
 const repoRoot = resolveRepoRoot(toolsDir);
 const defaultManifestPath = path.join(repoRoot, "tool-manifests", "tools.json");
 

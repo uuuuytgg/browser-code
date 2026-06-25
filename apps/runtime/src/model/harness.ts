@@ -1,15 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { CaptureTask } from "@ska/schemas";
 
+import { resolveModuleDir } from "../module-path";
 import { resolveRepoRoot } from "../repo-root";
 import type { SessionMessage } from "../session/session-store";
 import type { ToolSpec } from "../tools/types";
 import type { ModelGenerateInput } from "./provider";
 
-const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
+const runtimeDir = resolveModuleDir(import.meta.url);
 const repoRoot = resolveRepoRoot(runtimeDir);
 const systemPromptPath = path.join(repoRoot, "prompts", "system.knowledge-agent.md");
 
