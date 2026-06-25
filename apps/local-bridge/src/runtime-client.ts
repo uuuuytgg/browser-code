@@ -4,7 +4,9 @@ import { createRegisteredTools, runAgentTask } from "@ska/runtime";
 import type {
   CaptureTask,
   FetchTranscriptOutput,
+  ResourceItem,
   RunAgentTaskResult,
+  ScanResourcesOutput,
   SaveMarkdownNoteOutput,
   ToolResult,
   WebToMarkdownOutput
@@ -33,12 +35,13 @@ export function createRuntimeTaskHandler(
       task.task_type !== "save_page"
       && task.task_type !== "save_selection"
       && task.task_type !== "summarize_video"
+      && task.task_type !== "scan_resources"
     ) {
       return {
         status: "error",
         error: {
           code: "TASK_TYPE_NOT_IMPLEMENTED",
-          message: `Task type ${task.task_type} is not implemented in Stage 8 bridge runtime handler`
+          message: `Task type ${task.task_type} is not implemented in Stage 10 bridge runtime handler`
         }
       };
     }
@@ -68,11 +71,36 @@ class LocalBridgeCaptureProvider {
       .filter((message): message is ToolMessagePayload => Boolean(message));
 
     const transcriptResult = findToolResult<FetchTranscriptOutput>(toolMessages, "fetch_transcript");
+    const scanResult = findToolResult<ScanResourcesOutput>(toolMessages, "scan_page_resources");
     const webResult = findToolResult<WebToMarkdownOutput>(toolMessages, "web_to_markdown");
     const saveResult = findToolResult<SaveMarkdownNoteOutput>(toolMessages, "save_markdown_note");
 
     let parsed: unknown;
 
+    if (this.task.task_type === "scan_resources" && !scanResult) {
+      parsed = {
+        type: "tool_call",
+        tool_call: {
+          id: `${this.task.task_id}_call_1`,
+          name: "scan_page_resources",
+          input: {
+            page_url: this.task.page.url,
+            links: this.task.page.links ?? [],
+            media: this.task.page.media ?? [],
+            html: this.task.page.html
+          }
+        }
+      };
+    } else if (this.task.task_type === "scan_resources" && scanResult) {
+      parsed = {
+        type: "final",
+        answer: {
+          message: `Found ${scanResult.items.length} public resources.`,
+          resource_count: scanResult.items.length,
+          resources: scanResult.items
+        }
+      };
+    } else
     if (this.task.task_type === "summarize_video" && !transcriptResult) {
       parsed = {
         type: "tool_call",

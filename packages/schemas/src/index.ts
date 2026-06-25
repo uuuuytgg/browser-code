@@ -247,3 +247,63 @@ export const FfmpegExtractAudioOutputSchema = z.object({
   audio_path: z.string().min(1)
 });
 export type FfmpegExtractAudioOutput = z.infer<typeof FfmpegExtractAudioOutputSchema>;
+
+export const ResourceItemTypeSchema = z.enum([
+  "pdf",
+  "docx",
+  "pptx",
+  "xlsx",
+  "image",
+  "audio",
+  "video",
+  "archive",
+  "unknown"
+]);
+export type ResourceItemType = z.infer<typeof ResourceItemTypeSchema>;
+
+export const ResourceItemSchema = z.object({
+  id: z.string().min(1),
+  type: ResourceItemTypeSchema,
+  url: z.string().url(),
+  text: z.string().optional(),
+  filename: z.string().optional(),
+  risk: z.enum(["low", "medium", "high"]),
+  downloadable_by_default: z.boolean()
+});
+export type ResourceItem = z.infer<typeof ResourceItemSchema>;
+
+export const ScanResourcesInputSchema = z.object({
+  page_url: z.string().url(),
+  links: z.array(
+    z.object({
+      text: z.string().optional(),
+      href: z.string().url()
+    })
+  ),
+  media: z.array(
+    z.object({
+      type: z.string(),
+      src: z.string().url()
+    })
+  ),
+  html: z.string().optional()
+});
+export type ScanResourcesInput = z.infer<typeof ScanResourcesInputSchema>;
+
+export const ScanResourcesOutputSchema = z.object({
+  items: z.array(ResourceItemSchema)
+});
+export type ScanResourcesOutput = z.infer<typeof ScanResourcesOutputSchema>;
+
+export const DownloadAssetInputSchema = z.object({
+  resource: ResourceItemSchema,
+  asset_dir: z.string().min(1)
+});
+export type DownloadAssetInput = z.infer<typeof DownloadAssetInputSchema>;
+
+export const DownloadAssetOutputSchema = z.object({
+  saved_path: z.string().min(1),
+  skipped: z.boolean(),
+  reason: z.string().optional()
+});
+export type DownloadAssetOutput = z.infer<typeof DownloadAssetOutputSchema>;

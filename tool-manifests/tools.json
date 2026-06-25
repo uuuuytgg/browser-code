@@ -41,13 +41,13 @@
       "name": "scan_page_resources",
       "risk": "low",
       "agent_modes": ["resource"],
-      "implemented": false
+      "implemented": true
     },
     {
       "name": "download_asset",
       "risk": "high",
       "agent_modes": ["resource"],
-      "implemented": false
+      "implemented": true
     }
   ],
   "forbidden_tools": ["run_shell", "execute_command", "eval_js", "run_python"]

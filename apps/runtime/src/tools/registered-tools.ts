@@ -1,3 +1,11 @@
+import path from "node:path";
+
+import {
+  downloadAssetToolSpec,
+  runDownloadAsset,
+  runScanPageResources,
+  scanPageResourcesToolSpec
+} from "@ska/tool-resource";
 import {
   buildIndexToolSpec,
   runBuildIndex,
@@ -23,6 +31,23 @@ export function createRegisteredTools(): ToolImplementation[] {
       spec: webToMarkdownToolSpec,
       async execute(input) {
         return runWebToMarkdown(input as Parameters<typeof runWebToMarkdown>[0]);
+      }
+    },
+    {
+      spec: scanPageResourcesToolSpec,
+      async execute(input) {
+        return runScanPageResources(input as Parameters<typeof runScanPageResources>[0]);
+      }
+    },
+    {
+      spec: downloadAssetToolSpec,
+      async execute(input, context) {
+        const assetDir = path.join(context.vault_dir, "assets");
+        ensureAllowedWrite(assetDir, [...context.allowed_write_roots, context.vault_dir]);
+        return runDownloadAsset({
+          ...(input as Parameters<typeof runDownloadAsset>[0]),
+          asset_dir: assetDir
+        });
       }
     },
     {

@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { CaptureTask } from "@ska/schemas";
+import type { CaptureTask, ResourceItem } from "@ska/schemas";
 
 import { createLocalBridgeServer } from "./localhost-server";
 import { createRuntimeTaskHandler } from "./runtime-client";
@@ -315,6 +315,57 @@ describe("local bridge server", () => {
           name: "ffmpeg_extract_audio"
         }
       });
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("scans public resources and returns them without writing assets by default", async () => {
+    const root = createTempRoot();
+    const task = createTask({
+      task_id: "task_bridge_resources",
+      task_type: "scan_resources",
+      page: {
+        url: "https://example.com/resources",
+        title: "Resource Page",
+        html: "<html><body></body></html>",
+        platform: "web",
+        links: [
+          { text: "Guide PDF", href: "https://example.com/files/guide.pdf" },
+          { text: "Playlist", href: "https://cdn.example.com/video/master.m3u8" }
+        ],
+        media: [
+          { type: "image", src: "https://example.com/assets/cover.png" }
+        ]
+      }
+    });
+    const server = createLocalBridgeServer({
+      port: 0,
+      runtimeHandler: createRuntimeTaskHandler({
+        tempDir: path.join(root, "temp"),
+        vaultDir: path.join(root, "vault")
+      })
+    });
+
+    await server.start();
+    try {
+      await fetch(server.url("/tasks"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(task)
+      });
+
+      const finalRecord = await waitForTask(server, task.task_id);
+      expect(finalRecord.status).toBe("done");
+      expect(finalRecord.result?.answer?.resource_count).toBe(3);
+      const resources = finalRecord.result?.answer?.resources as ResourceItem[];
+      expect(resources.find((item) => item.type === "pdf")?.downloadable_by_default).toBe(true);
+      expect(resources.find((item) => item.url.endsWith(".m3u8"))?.risk).toBe("high");
+
+      const assetDir = path.join(root, "vault", "assets");
+      await expect(fs.access(assetDir)).rejects.toThrow();
     } finally {
       await server.stop();
     }
