@@ -1,10 +1,29 @@
-import type { ModelProvider } from "./provider";
+import type { ModelProvider, ProviderName } from "./provider";
 import { AnthropicProvider } from "./anthropic";
 import { DeepSeekProvider } from "./deepseek";
+import { MockModelProvider } from "./mock-provider";
 import { OpenAIProvider } from "./openai";
 
-export function createProvider(providerName: "deepseek" | "openai" | "anthropic"): ModelProvider {
+type CreateProviderOptions = {
+  mockOutputs?: unknown[];
+};
+
+export function createProvider(
+  providerName: ProviderName,
+  options: CreateProviderOptions = {}
+): ModelProvider {
   switch (providerName) {
+    case "mock":
+      return new MockModelProvider(
+        options.mockOutputs ?? [
+          {
+            type: "final",
+            answer: {
+              message: "Mock provider default response."
+            }
+          }
+        ]
+      );
     case "deepseek":
       return new DeepSeekProvider();
     case "openai":
@@ -12,4 +31,16 @@ export function createProvider(providerName: "deepseek" | "openai" | "anthropic"
     case "anthropic":
       return new AnthropicProvider();
   }
+}
+
+export function createProviderFromEnv(options: CreateProviderOptions = {}) {
+  const rawProviderName = process.env.SKA_MODEL_PROVIDER?.trim();
+  const providerName = rawProviderName
+    && (rawProviderName === "mock"
+      || rawProviderName === "deepseek"
+      || rawProviderName === "openai"
+      || rawProviderName === "anthropic")
+    ? rawProviderName
+    : "mock";
+  return createProvider(providerName, options);
 }

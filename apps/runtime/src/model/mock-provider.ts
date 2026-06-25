@@ -1,7 +1,7 @@
 import type { ModelGenerateInput, ModelGenerateOutput, ModelProvider } from "./provider";
 
 export class MockModelProvider implements ModelProvider {
-  name = "mock";
+  readonly name = "mock";
 
   private readonly outputs: unknown[];
 
