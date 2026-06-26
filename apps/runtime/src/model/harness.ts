@@ -22,7 +22,7 @@ export function buildTaskInstruction(task: CaptureTask) {
     case "save_page":
       return "Task: save_page. Use web_to_markdown first, then save_markdown_note, then build_index if available, then return a final answer.";
     case "summarize_video":
-      return "Task: summarize_video. Prefer fetch_transcript first. If subtitles are unavailable and extraction is high-risk, request confirmation instead of proceeding automatically.";
+      return "Task: summarize_video. Use fetch_transcript first. If transcript is available, write a concise structured summary with key points and timestamps through save_markdown_note using content_type=video, then return the saved note reference. If subtitles are unavailable and extraction is high-risk, request confirmation instead of pretending the summary succeeded.";
     case "scan_resources":
       return "Task: scan_resources. Use scan_page_resources to inspect the page. Do not auto-download assets.";
     case "search_vault":

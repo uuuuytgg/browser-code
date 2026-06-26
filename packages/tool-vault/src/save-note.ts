@@ -17,7 +17,7 @@ type SaveOptions = {
 
 export async function saveMarkdownNote(input: SaveMarkdownNoteInput, options: SaveOptions): Promise<SaveMarkdownNoteOutput> {
   const parsed = SaveMarkdownNoteInputSchema.parse(input);
-  const existing = await findExistingNoteBySourceUrl(options.vaultDir, parsed.source_url);
+  const existing = await findExistingNoteBySourceUrl(options.vaultDir, parsed.source_url, parsed.content_type);
 
   if (existing) {
     return SaveMarkdownNoteOutputSchema.parse({

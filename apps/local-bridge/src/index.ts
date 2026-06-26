@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { skaVersion } from "@ska/shared";
 
 import { BridgeHealthSchema, BridgeSubmitTaskResponseSchema, BridgeTaskStatusSchema } from "./bridge-protocol";
+import { getDefaultTempDir, getDefaultVaultDir, LocalConfigStore } from "./local-config";
 import { createLocalBridgeServer } from "./localhost-server";
 import { createRuntimeTaskHandler } from "./runtime-client";
 import { TaskStore } from "./task-store";
@@ -29,16 +30,17 @@ export async function startBridgeServer() {
   const port = Number(process.env.SKA_BRIDGE_PORT ?? "34567");
   const host = process.env.SKA_BRIDGE_HOST ?? "127.0.0.1";
   const token = process.env.SKA_BRIDGE_TOKEN;
+  const configStore = new LocalConfigStore();
   const runtimeHandler = createRuntimeTaskHandler({
-    tempDir: path.resolve(process.env.SKA_TEMP_DIR ?? "temp"),
-    vaultDir: path.resolve(process.env.SKA_VAULT_DIR ?? "vault")
+    readConfig: () => configStore.read()
   });
 
   const server = createLocalBridgeServer({
     host,
     port,
     token,
-    runtimeHandler
+    runtimeHandler,
+    configStore
   });
 
   await server.start();
@@ -52,6 +54,7 @@ function printHelp() {
     "",
     "Usage:",
     "  browser-code start     Start the local bridge on 127.0.0.1 by default",
+    "  browser-code tui       Open the minimal terminal interface",
     "  browser-code doctor    Print resolved local runtime and bridge configuration",
     "  browser-code version   Print the package version",
     "  browser-code help      Show this help",
@@ -66,14 +69,19 @@ function printHelp() {
   ].join("\n"));
 }
 
-function printDoctor() {
+async function printDoctor() {
+  const configStore = new LocalConfigStore();
+  const config = await configStore.readPublic();
   const diagnostics = {
     name: bridgeAppInfo.displayName,
     bridgeHost: process.env.SKA_BRIDGE_HOST ?? "127.0.0.1",
     bridgePort: Number(process.env.SKA_BRIDGE_PORT ?? "34567"),
-    modelProvider: process.env.SKA_MODEL_PROVIDER ?? "mock",
-    vaultDir: path.resolve(process.env.SKA_VAULT_DIR ?? "vault"),
-    tempDir: path.resolve(process.env.SKA_TEMP_DIR ?? "temp"),
+    modelProvider: config.provider,
+    model: config.model ?? null,
+    vaultDir: config.vaultDir || getDefaultVaultDir(),
+    tempDir: config.tempDir || getDefaultTempDir(),
+    keyConfigured: config.keyConfigured,
+    configPath: config.configPath,
     tokenConfigured: Boolean(process.env.SKA_BRIDGE_TOKEN)
   };
 
@@ -89,7 +97,12 @@ async function main(argv = process.argv.slice(2)) {
   }
 
   if (command === "doctor") {
-    printDoctor();
+    await printDoctor();
+    return;
+  }
+
+  if (command === "tui") {
+    await startTui();
     return;
   }
 
@@ -106,6 +119,11 @@ async function main(argv = process.argv.slice(2)) {
   }
 
   await startBridgeServer();
+}
+
+async function startTui() {
+  const { startBrowserCodeTui } = await import("./tui");
+  await startBrowserCodeTui();
 }
 
 function isDirectExecution() {

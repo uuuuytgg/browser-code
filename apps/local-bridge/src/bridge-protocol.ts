@@ -5,6 +5,7 @@ import {
   RunAgentTaskResultSchema
 } from "@ska/schemas";
 import { skaVersion } from "@ska/shared";
+import { PublicBridgeConfigSchema } from "./local-config";
 
 export const bridgeTaskStatusValues = [
   "processing",
@@ -18,7 +19,7 @@ export type BridgeTaskStatus = z.infer<typeof BridgeTaskStatusSchema>;
 
 export const BridgeHealthSchema = z.object({
   ok: z.literal(true),
-  name: z.literal("sidebar-knowledge-agent-bridge"),
+  name: z.literal("browser-code-local-bridge"),
   version: z.literal(skaVersion)
 });
 export type BridgeHealth = z.infer<typeof BridgeHealthSchema>;
@@ -39,3 +40,8 @@ export const BridgeTaskRecordSchema = z.object({
   result: RunAgentTaskResultSchema.optional()
 });
 export type BridgeTaskRecord = z.infer<typeof BridgeTaskRecordSchema>;
+
+export const BridgeConfigResponseSchema = PublicBridgeConfigSchema.extend({
+  ok: z.literal(true)
+});
+export type BridgeConfigResponse = z.infer<typeof BridgeConfigResponseSchema>;

@@ -6,6 +6,8 @@ import { OpenAIProvider } from "./openai";
 
 type CreateProviderOptions = {
   mockOutputs?: unknown[];
+  apiKey?: string;
+  model?: string;
 };
 
 export function createProvider(
@@ -25,11 +27,11 @@ export function createProvider(
         ]
       );
     case "deepseek":
-      return new DeepSeekProvider();
+      return new DeepSeekProvider({ apiKey: options.apiKey, model: options.model });
     case "openai":
-      return new OpenAIProvider();
+      return new OpenAIProvider({ apiKey: options.apiKey, model: options.model });
     case "anthropic":
-      return new AnthropicProvider();
+      return new AnthropicProvider({ apiKey: options.apiKey, model: options.model });
   }
 }
 

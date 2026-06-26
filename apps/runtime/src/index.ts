@@ -9,6 +9,7 @@ import { createStage1MockTools } from "./tools/mock-tools";
 import { createRegisteredTools } from "./tools/registered-tools";
 import { DeepSeekProvider } from "./model/deepseek";
 import { OpenAIProvider } from "./model/openai";
+import { providerNames, type ProviderName } from "./model/provider";
 
 export const runtimeAppInfo = {
   name: "@ska/runtime",
@@ -34,6 +35,9 @@ export {
   resolveRuntimeConfig,
   readSystemPrompt
 };
+
+export { providerNames };
+export type { ProviderName };
 
 if (process.argv[1]?.endsWith("index.ts")) {
   console.log(`${runtimeAppInfo.displayName} placeholder ready for Stage ${runtimeAppInfo.stage}.`);

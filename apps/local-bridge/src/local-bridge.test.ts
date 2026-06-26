@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CaptureTask, ResourceItem } from "@ska/schemas";
 
 import { createLocalBridgeServer } from "./localhost-server";
+import { LocalConfigStore } from "./local-config";
 import { createRuntimeTaskHandler } from "./runtime-client";
 
 const tempRoots: string[] = [];
@@ -48,7 +49,8 @@ describe("local bridge server", () => {
       runtimeHandler: createRuntimeTaskHandler({
         tempDir: path.join(root, "temp"),
         vaultDir: path.join(root, "vault")
-      })
+      }),
+      configStore: new LocalConfigStore(path.join(root, "config.json"))
     });
 
     await server.start();
@@ -57,8 +59,56 @@ describe("local bridge server", () => {
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
         ok: true,
-        name: "sidebar-knowledge-agent-bridge",
+        name: "browser-code-local-bridge",
         version: "0.1.0"
+      });
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("reads and updates public bridge config without exposing API keys", async () => {
+    const root = createTempRoot();
+    const server = createLocalBridgeServer({
+      port: 0,
+      runtimeHandler: createRuntimeTaskHandler({
+        tempDir: path.join(root, "temp"),
+        vaultDir: path.join(root, "vault")
+      }),
+      configStore: new LocalConfigStore(path.join(root, "config.json"))
+    });
+
+    await server.start();
+    try {
+      const patchResponse = await fetch(server.url("/config"), {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          provider: "deepseek",
+          model: "deepseek-chat",
+          apiKey: "secret-test-key",
+          vaultDir: path.join(root, "configured-vault")
+        })
+      });
+
+      expect(patchResponse.status).toBe(200);
+      const updated = await patchResponse.json();
+      expect(updated).toMatchObject({
+        ok: true,
+        provider: "deepseek",
+        model: "deepseek-chat",
+        keyConfigured: true,
+        vaultDir: path.join(root, "configured-vault")
+      });
+      expect(JSON.stringify(updated)).not.toContain("secret-test-key");
+
+      const getResponse = await fetch(server.url("/config"));
+      expect(getResponse.status).toBe(200);
+      expect(await getResponse.json()).toMatchObject({
+        provider: "deepseek",
+        keyConfigured: true
       });
     } finally {
       await server.stop();

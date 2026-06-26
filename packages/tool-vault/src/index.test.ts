@@ -69,7 +69,7 @@ describe("saveMarkdownNote", () => {
     expect(fileContent).toContain("# Example Article");
   });
 
-  it("dedupes by source_url and returns the existing note path", async () => {
+  it("dedupes by source_url and content_type and returns the existing note path", async () => {
     const vaultDir = createVaultRoot();
     await ensureVaultDirs(vaultDir);
 
@@ -101,6 +101,42 @@ describe("saveMarkdownNote", () => {
 
     expect(second.deduped).toBe(true);
     expect(second.file_path).toBe(first.file_path);
+  });
+
+  it("allows different content types for the same source_url", async () => {
+    const vaultDir = createVaultRoot();
+    await ensureVaultDirs(vaultDir);
+    const sourceUrl = "https://example.com/posts/mixed";
+
+    const article = await saveMarkdownNote(
+      {
+        markdown: "# Example Article\n\nOriginal body.",
+        metadata: {
+          title: "Example Article",
+          source_url: sourceUrl
+        },
+        content_type: "article",
+        source_url: sourceUrl
+      },
+      { vaultDir }
+    );
+
+    const video = await saveMarkdownNote(
+      {
+        markdown: "# Example Video\n\nSummary body.",
+        metadata: {
+          title: "Example Video",
+          source_url: sourceUrl
+        },
+        content_type: "video",
+        source_url: sourceUrl
+      },
+      { vaultDir }
+    );
+
+    expect(video.deduped).toBe(false);
+    expect(article.file_path).toMatch(/vault[\\/]+articles[\\/]+/);
+    expect(video.file_path).toMatch(/vault[\\/]+videos[\\/]+/);
   });
 });
 

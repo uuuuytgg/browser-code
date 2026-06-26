@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { createRegisteredTools, runAgentTask } from "@ska/runtime";
+import { createProvider, createRegisteredTools, runAgentTask } from "@ska/runtime";
 import type {
   CaptureTask,
   FetchTranscriptOutput,
@@ -12,6 +12,8 @@ import type {
   ToolResult,
   WebToMarkdownOutput
 } from "@ska/schemas";
+import type { LocalBridgeConfig } from "./local-config";
+import { getApiKeyForProvider, getDefaultTempDir, getDefaultVaultDir } from "./local-config";
 
 type ToolMessagePayload = {
   name: string;
@@ -23,15 +25,16 @@ export type RuntimeTaskHandler = (task: CaptureTask) => Promise<RunAgentTaskResu
 export type CreateRuntimeTaskHandlerOptions = {
   tempDir?: string;
   vaultDir?: string;
+  readConfig?: () => Promise<LocalBridgeConfig>;
 };
 
 export function createRuntimeTaskHandler(
   options: CreateRuntimeTaskHandlerOptions = {}
 ): RuntimeTaskHandler {
-  const tempDir = options.tempDir ?? path.resolve("temp");
-  const vaultDir = options.vaultDir ?? path.resolve("vault");
-
   return async (task) => {
+    const config = options.readConfig ? await options.readConfig() : undefined;
+    const tempDir = path.resolve(options.tempDir ?? config?.tempDir ?? getDefaultTempDir());
+    const vaultDir = path.resolve(options.vaultDir ?? config?.vaultDir ?? getDefaultVaultDir());
     if (
       task.task_type !== "save_page"
       && task.task_type !== "save_selection"
@@ -48,7 +51,12 @@ export function createRuntimeTaskHandler(
       };
     }
 
-    const provider = new LocalBridgeCaptureProvider(task);
+    const provider = config && config.provider !== "mock"
+      ? createProvider(config.provider, {
+        apiKey: getApiKeyForProvider(config),
+        model: config.model
+      })
+      : new LocalBridgeCaptureProvider(task);
 
     return runAgentTask(task, {
       provider,

@@ -4,10 +4,12 @@ import { CaptureTaskSchema } from "@ska/schemas";
 import { skaVersion } from "@ska/shared";
 
 import {
+  BridgeConfigResponseSchema,
   BridgeHealthSchema,
   BridgeSubmitTaskResponseSchema,
   type BridgeTaskRecord
 } from "./bridge-protocol";
+import { LocalConfigStore, UpdateBridgeConfigSchema } from "./local-config";
 import type { RuntimeTaskHandler } from "./runtime-client";
 import { TaskStore } from "./task-store";
 
@@ -22,6 +24,7 @@ export type CreateLocalBridgeServerOptions = {
   maxBodyBytes?: number;
   runtimeHandler: RuntimeTaskHandler;
   taskStore?: TaskStore;
+  configStore?: LocalConfigStore;
 };
 
 export type LocalBridgeServer = {
@@ -40,6 +43,7 @@ export function createLocalBridgeServer(
   const requestedPort = options.port ?? DEFAULT_PORT;
   const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   const taskStore = options.taskStore ?? new TaskStore();
+  const configStore = options.configStore ?? new LocalConfigStore();
 
   const server = http.createServer(async (request, response) => {
     try {
@@ -48,6 +52,23 @@ export function createLocalBridgeServer(
           ok: true,
           name: "browser-code-local-bridge",
           version: skaVersion
+        }));
+      }
+
+      if (request.method === "GET" && request.url === "/config") {
+        return sendJson(response, 200, BridgeConfigResponseSchema.parse({
+          ok: true,
+          ...await configStore.readPublic()
+        }));
+      }
+
+      if (request.method === "PATCH" && request.url === "/config") {
+        const rawBody = await readRequestBody(request, maxBodyBytes);
+        const input = UpdateBridgeConfigSchema.parse(JSON.parse(rawBody || "{}"));
+        const config = await configStore.update(input);
+        return sendJson(response, 200, BridgeConfigResponseSchema.parse({
+          ok: true,
+          ...config
         }));
       }
 

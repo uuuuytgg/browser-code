@@ -1,0 +1,179 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #1b1f24;
+  background: #f4f1ea;
+  font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(48, 96, 86, 0.14), transparent 42%), #f7f4ed;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #ded6ca;
+  background: rgba(255, 252, 246, 0.9);
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.topbar p {
+  margin: 4px 0 0;
+  color: #657067;
+  font-size: 12px;
+}
+
+.vault-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  color: #4e5b52;
+  border-bottom: 1px solid #e5ddd1;
+  font-size: 12px;
+}
+
+.vault-strip strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ded6ca;
+  background: #fffaf0;
+}
+
+.settings-panel label {
+  display: grid;
+  gap: 5px;
+  color: #39443c;
+  font-size: 12px;
+}
+
+.settings-panel input,
+.settings-panel select,
+.input-row textarea {
+  width: 100%;
+  border: 1px solid #cfc6b8;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fffdf8;
+  color: #1b1f24;
+}
+
+.messages {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.message {
+  max-width: 92%;
+  white-space: pre-wrap;
+  border: 1px solid #ded6ca;
+  border-radius: 8px;
+  padding: 10px 12px;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.message-user {
+  align-self: flex-end;
+  color: #fffdf8;
+  background: #2f665d;
+  border-color: #2f665d;
+}
+
+.message-assistant {
+  align-self: flex-start;
+  background: #fffdf8;
+}
+
+.message-status {
+  align-self: center;
+  color: #657067;
+  background: transparent;
+  border-style: dashed;
+}
+
+.message-error {
+  align-self: flex-start;
+  color: #8a2f20;
+  background: #fff0eb;
+  border-color: #efb8a9;
+}
+
+.composer {
+  padding: 12px;
+  border-top: 1px solid #ded6ca;
+  background: rgba(255, 252, 246, 0.96);
+}
+
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.quick-actions button,
+.ghost-button {
+  border: 1px solid #cfc6b8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fffdf8;
+  color: #263229;
+  white-space: nowrap;
+}
+
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.input-row textarea {
+  resize: none;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #2f665d;
+  color: #fffdf8;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

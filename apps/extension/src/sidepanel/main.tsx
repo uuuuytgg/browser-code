@@ -1,9 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { AppStage4 } from "./AppStage4";
+import { AppChat } from "./AppChat";
+import "./sidepanel.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <AppStage4 />
+    <AppChat />
   </React.StrictMode>
 );
