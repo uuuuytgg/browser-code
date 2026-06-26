@@ -49,10 +49,12 @@ describe("provider implementations", () => {
   });
 
   it("parses an OpenAI-style JSON response", async () => {
+    let requestBody: any;
     const provider = new OpenAIProvider({
       apiKey: "test-key",
-      fetchImpl: async () =>
-        new Response(
+      fetchImpl: async (_url, init) => {
+        requestBody = JSON.parse(String(init?.body));
+        return new Response(
           JSON.stringify({
             choices: [
               {
@@ -63,12 +65,26 @@ describe("provider implementations", () => {
             ]
           }),
           { status: 200 }
-        )
+        );
+      }
     });
 
-    const result = await provider.generate(input);
+    const result = await provider.generate({
+      ...input,
+      messages: [
+        ...input.messages,
+        {
+          role: "tool",
+          content: "{\"safe\":true}"
+        }
+      ]
+    });
     expect(result.parsed).toMatchObject({
       type: "tool_call"
+    });
+    expect(requestBody.messages.at(-1)).toMatchObject({
+      role: "user",
+      content: expect.stringContaining("Tool result data")
     });
   });
 

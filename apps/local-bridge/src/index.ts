@@ -122,8 +122,10 @@ async function main(argv = process.argv.slice(2)) {
 }
 
 async function startTui() {
-  const { startBrowserCodeTui } = await import("./tui");
-  await startBrowserCodeTui();
+  const { startBrowserCodeTui } = await import("./tui-next");
+  await startBrowserCodeTui({
+    startBridge: startBridgeServer
+  });
 }
 
 function isDirectExecution() {
