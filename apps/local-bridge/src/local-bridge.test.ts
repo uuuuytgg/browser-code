@@ -274,6 +274,46 @@ describe("local bridge server", () => {
     }
   });
 
+  it("submits chat tasks without forcing a vault search in mock mode", async () => {
+    const root = createTempRoot();
+    const task = createTask({
+      task_id: "task_bridge_chat",
+      task_type: "chat",
+      user_instruction: "你能做什么？"
+    });
+    const server = createLocalBridgeServer({
+      port: 0,
+      runtimeHandler: createRuntimeTaskHandler({
+        tempDir: path.join(root, "temp"),
+        vaultDir: path.join(root, "vault")
+      }),
+      configStore: new LocalConfigStore(path.join(root, "config.json"))
+    });
+
+    await server.start();
+    try {
+      const submitResponse = await fetch(server.url("/tasks"), {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(task)
+      });
+
+      expect(submitResponse.status).toBe(200);
+      const finalRecord = await waitForTask(server, task.task_id);
+      expect(finalRecord.status).toBe("done");
+      expect(finalRecord.result).toMatchObject({
+        status: "done",
+        answer: {
+          message: expect.stringContaining("Mock chat response")
+        }
+      });
+    } finally {
+      await server.stop();
+    }
+  });
+
   it("saves a video transcript into the videos vault path when transcript data is present", async () => {
     const root = createTempRoot();
     const task = createTask({

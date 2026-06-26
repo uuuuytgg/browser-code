@@ -41,6 +41,7 @@ export function createRuntimeTaskHandler(
       && task.task_type !== "summarize_video"
       && task.task_type !== "scan_resources"
       && task.task_type !== "search_vault"
+      && task.task_type !== "chat"
     ) {
       return {
         status: "error",
@@ -88,7 +89,17 @@ class LocalBridgeCaptureProvider {
 
     let parsed: unknown;
 
-    if (this.task.task_type === "search_vault" && !searchResults) {
+    if (this.task.task_type === "chat" && !shouldSearchVault(this.task.user_instruction)) {
+      parsed = {
+        type: "final",
+        answer: {
+          message: [
+            "Mock chat response. Real providers can answer natural-language questions here.",
+            this.task.user_instruction ? `User message: ${this.task.user_instruction}` : undefined
+          ].filter(Boolean).join("\n")
+        }
+      };
+    } else if ((this.task.task_type === "search_vault" || this.task.task_type === "chat") && !searchResults) {
       parsed = {
         type: "tool_call",
         tool_call: {
@@ -100,7 +111,7 @@ class LocalBridgeCaptureProvider {
           }
         }
       };
-    } else if (this.task.task_type === "search_vault" && searchResults) {
+    } else if ((this.task.task_type === "search_vault" || this.task.task_type === "chat") && searchResults) {
       parsed = {
         type: "final",
         answer: {
@@ -254,6 +265,11 @@ class LocalBridgeCaptureProvider {
       parsed
     };
   }
+}
+
+function shouldSearchVault(message: string | undefined) {
+  if (!message) return false;
+  return /vault|knowledge|note|notes|search|saved|知识库|笔记|搜索|查找|保存过|资料库/i.test(message);
 }
 
 function parseToolMessage(content: string) {

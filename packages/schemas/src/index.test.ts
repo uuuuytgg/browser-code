@@ -28,6 +28,23 @@ describe("CaptureTaskSchema", () => {
     expect(parsed.page.platform).toBe("web");
   });
 
+  it("accepts a natural-language chat task fixture", () => {
+    const parsed = CaptureTaskSchema.parse({
+      task_id: "task_chat_001",
+      task_type: "chat",
+      page: {
+        url: "https://example.com/article",
+        title: "Example Article",
+        platform: "web"
+      },
+      user_instruction: "这篇文章主要讲什么？",
+      created_at: "2026-06-25T00:00:00+08:00"
+    });
+
+    expect(parsed.task_type).toBe("chat");
+    expect(parsed.user_instruction).toContain("文章");
+  });
+
   it("rejects an unsupported task type", () => {
     expect(() =>
       CaptureTaskSchema.parse({

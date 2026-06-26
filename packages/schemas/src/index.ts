@@ -41,7 +41,8 @@ export const CaptureTaskSchema = z.object({
     "summarize_video",
     "scan_resources",
     "save_selection",
-    "search_vault"
+    "search_vault",
+    "chat"
   ]),
   page: z.object({
     url: z.string().url(),

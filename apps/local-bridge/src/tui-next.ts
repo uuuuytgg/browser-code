@@ -23,7 +23,7 @@ export async function startBrowserCodeTui(options: TuiOptions = {}) {
   let embeddedBridge: Awaited<ReturnType<NonNullable<TuiOptions["startBridge"]>>> | undefined;
 
   console.log("Browser Code TUI");
-  console.log("输入 /doctor 查看状态，/config 配置模型，/ask 问知识库，/exit 退出。");
+  console.log("输入 /doctor 查看状态，/config 配置模型，/ask 对话，/exit 退出。");
   console.log("也可以直接输入 apikey、配置、doctor 这些常用词。");
 
   try {
@@ -60,9 +60,9 @@ export async function startBrowserCodeTui(options: TuiOptions = {}) {
       } else if (isConfigCommand(line)) {
         await configure(rl);
       } else if (startsWithCommand(line, "/ask") || startsWithCommand(line, "ask")) {
-        await askVault(stripCommand(line));
+        await chat(stripCommand(line));
       } else {
-        await askVault(line);
+        await chat(line);
       }
     } catch (error) {
       console.error(toFriendlyError(error));
@@ -120,13 +120,13 @@ async function configure(rl: readline.Interface) {
   console.log(`Temp=${updated.tempDir}`);
 }
 
-async function askVault(query: string) {
+async function chat(query: string) {
   if (!query) {
-    console.log("请输入问题，例如：/ask 这个知识库里有什么关于 React 的内容？");
+    console.log("请输入问题，例如：/ask 这篇页面讲了什么？或者 /ask 解释一下 React Compiler。");
     return;
   }
 
-  const task = buildCaptureTaskFromText("search_vault", query);
+  const task = buildCaptureTaskFromText("chat", query);
   const submitted = await request("/tasks", {
     method: "POST",
     body: JSON.stringify(task)

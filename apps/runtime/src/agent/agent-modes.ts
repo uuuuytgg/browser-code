@@ -10,6 +10,7 @@ export function inferAgentMode(task: CaptureTask): AgentMode {
       return "media";
     case "scan_resources":
       return "resource";
+    case "chat":
     case "search_vault":
     default:
       return "reader";
@@ -26,6 +27,8 @@ export function getMaxStepsForTask(task: CaptureTask): number {
       return 5;
     case "search_vault":
       return 4;
+    case "chat":
+      return 6;
     default:
       return 8;
   }

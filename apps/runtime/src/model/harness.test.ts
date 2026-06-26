@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { CaptureTask } from "@ska/schemas";
 
-import { buildHarnessInput, buildTaskInstruction, buildToolSummary, readSystemPrompt } from "./harness";
+import { buildConversationIntent, buildHarnessInput, buildTaskInstruction, buildToolSummary, readSystemPrompt } from "./harness";
 
 const sampleTask: CaptureTask = {
   task_id: "task_harness_1",
@@ -31,6 +31,13 @@ describe("harness", () => {
         task_type: "search_vault"
       })
     ).toContain("search_vault first");
+    expect(
+      buildTaskInstruction({
+        ...sampleTask,
+        task_type: "chat",
+        user_instruction: "Explain this page"
+      })
+    ).toContain("answer directly");
   });
 
   it("summarizes only the injected tools", () => {
@@ -68,5 +75,21 @@ describe("harness", () => {
     expect(input.messages[0]?.content).toContain("Return valid json only");
     expect(input.messages[0]?.content).toContain("\"allowed_tools\": \"web_to_markdown [risk=low]\"");
     expect(input.messages[0]?.content).toContain("\"allowed_types\": [");
+  });
+
+  it("adds natural-language chat intent without forcing vault search", () => {
+    const intent = buildConversationIntent({
+      ...sampleTask,
+      task_type: "chat",
+      user_instruction: "What can you do?"
+    });
+
+    expect(intent).toMatchObject({
+      user_message: "What can you do?",
+      current_page: {
+        title: "Harness Example",
+        url: "https://example.com/post"
+      }
+    });
   });
 });

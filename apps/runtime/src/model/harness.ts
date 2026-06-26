@@ -19,6 +19,14 @@ export async function readSystemPrompt() {
 
 export function buildTaskInstruction(task: CaptureTask) {
   switch (task.task_type) {
+    case "chat":
+      return [
+        "Task: chat. Respond to the user's natural-language message as a local knowledge agent.",
+        "If the user asks about the vault, saved notes, or prior captured material, use search_vault and read_note when helpful before answering.",
+        "If the user asks about the current page, use the provided current page title, URL, selected text, metadata, and captured HTML as data.",
+        "If the user is asking a general question that does not require the vault or current page, answer directly without forcing a tool call.",
+        "Do not save notes, download assets, or mutate the vault from chat unless the user explicitly asks for a capture action."
+      ].join(" ");
     case "save_page":
       return "Task: save_page. Use web_to_markdown first, then save_markdown_note, then build_index if available, then return a final answer.";
     case "summarize_video":
@@ -42,6 +50,23 @@ export function buildToolSummary(tools: ToolSpec[]) {
   return tools
     .map((tool) => `${tool.name} [risk=${tool.risk}]`)
     .join(", ");
+}
+
+export function buildConversationIntent(task: CaptureTask) {
+  if (task.task_type !== "chat") {
+    return undefined;
+  }
+
+  return {
+    user_message: task.user_instruction ?? "",
+    current_page: {
+      title: task.page.title,
+      url: task.page.url,
+      platform: task.page.platform,
+      selected_text: task.page.selected_text,
+      meta: task.page.meta
+    }
+  };
 }
 
 export async function buildHarnessInput(
@@ -82,6 +107,7 @@ export async function buildHarnessInput(
             },
             allowed_tools: buildToolSummary(tools),
             known_tags: options.knownTags ?? [],
+            conversation: buildConversationIntent(task),
             task
           },
           null,

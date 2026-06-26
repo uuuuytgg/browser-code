@@ -128,7 +128,7 @@ export function AppChat() {
     if (!messageText) return;
     addMessage("user", messageText);
     setInput("");
-    await runTask("search_vault", messageText);
+    await runTask("chat", messageText);
   }
 
   async function runTask(taskType: CaptureTaskType, userInstruction?: string) {
