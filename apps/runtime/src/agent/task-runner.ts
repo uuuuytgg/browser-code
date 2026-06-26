@@ -78,7 +78,8 @@ export async function runAgentTask(
       });
     }
 
-    const validation = registry.validate(parsedOutput.tool_call, mode);
+    const normalizedToolCall = normalizeToolCallInput(parsedOutput.tool_call, task);
+    const validation = registry.validate(normalizedToolCall, mode);
     if (!validation.ok) {
       await sessionStore.addError(validation.error.code, validation.error.message);
       continue;
@@ -87,10 +88,10 @@ export async function runAgentTask(
     const toolSpec = validation.spec;
     const permission = permissionGuard.check(toolSpec, mode);
     if (permission.decision === "confirm") {
-      await sessionStore.addEvent("need_confirmation", { tool_call: parsedOutput.tool_call, reason: permission.reason });
+      await sessionStore.addEvent("need_confirmation", { tool_call: normalizedToolCall, reason: permission.reason });
       return RunAgentTaskResultSchema.parse({
         status: "need_confirmation",
-        pendingToolCall: parsedOutput.tool_call
+        pendingToolCall: normalizedToolCall
       });
     }
 
@@ -99,7 +100,7 @@ export async function runAgentTask(
       continue;
     }
 
-    const toolResult = await router.execute(parsedOutput.tool_call, {
+    const toolResult = await router.execute(normalizedToolCall, {
       task_id: task.task_id,
       session_id: task.task_id,
       vault_dir: options.vaultDir,
@@ -116,7 +117,7 @@ export async function runAgentTask(
       }
     });
 
-    await recordToolResult(sessionStore, parsedOutput.tool_call.name, toolResult);
+    await recordToolResult(sessionStore, normalizedToolCall.name, toolResult);
   }
 
   await sessionStore.addError("MAX_STEPS_EXCEEDED", `Task exceeded ${maxSteps} steps`);
@@ -131,4 +132,34 @@ export async function runAgentTask(
 
 async function recordToolResult(sessionStore: SessionStore, toolName: string, toolResult: ToolResult) {
   await sessionStore.addToolResult(toolName, toolResult);
+}
+
+function normalizeToolCallInput(
+  toolCall: { id: string; name: string; input: unknown },
+  task: CaptureTask
+) {
+  if (toolCall.name !== "web_to_markdown") {
+    return toolCall;
+  }
+
+  const input = isRecord(toolCall.input) ? toolCall.input : {};
+  return {
+    ...toolCall,
+    input: {
+      ...input,
+      url: typeof input.url === "string" ? input.url : task.page.url,
+      title: typeof input.title === "string" ? input.title : task.page.title,
+      html: typeof input.html === "string" ? input.html : task.page.html ?? "<html><body></body></html>",
+      selected_text: "selected_text" in input ? input.selected_text : task.page.selected_text ?? null,
+      mode: typeof input.mode === "string"
+        ? input.mode
+        : task.task_type === "save_selection"
+          ? "selection"
+          : "readability"
+    }
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }

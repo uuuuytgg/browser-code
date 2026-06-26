@@ -137,6 +137,43 @@ describe("runAgentTask", () => {
     expect(sessionLog).toContain("\"event\":\"final\"");
   });
 
+  it("hydrates current-page web_to_markdown inputs when the model omits captured page fields", async () => {
+    const tempRoot = createTempRoot();
+    const task = createSavePageTask();
+    const provider = new MockModelProvider([
+      {
+        type: "tool_call",
+        tool_call: {
+          id: "call_1",
+          name: "web_to_markdown",
+          input: {
+            url: task.page.url
+          }
+        }
+      },
+      {
+        type: "final",
+        answer: {
+          message: "Converted current page."
+        }
+      }
+    ]);
+
+    const result = await runAgentTask(task, {
+      provider,
+      tools: createStage1MockTools(),
+      tempDir: path.join(tempRoot, "temp"),
+      vaultDir: path.join(tempRoot, "vault")
+    });
+
+    expect(result.status).toBe("done");
+
+    const sessionLogPath = path.join(tempRoot, "temp", "sessions", `${task.task_id}.jsonl`);
+    const sessionLog = await fs.readFile(sessionLogPath, "utf8");
+    expect(sessionLog).toContain("\"event\":\"tool_result\"");
+    expect(sessionLog).not.toContain("TOOL_INPUT_INVALID");
+  });
+
   it("returns need_confirmation for a high-risk tool call", async () => {
     const tempRoot = createTempRoot();
     const task: CaptureTask = {

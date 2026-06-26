@@ -63,7 +63,7 @@ export async function waitForLocalBridgeTask(
   taskId: string,
   options: { attempts?: number; intervalMs?: number } = {}
 ): Promise<BridgeTaskRecord> {
-  const attempts = options.attempts ?? 80;
+  const attempts = options.attempts ?? 180;
   const intervalMs = options.intervalMs ?? 500;
 
   for (let index = 0; index < attempts; index += 1) {
