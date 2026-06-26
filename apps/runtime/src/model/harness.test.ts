@@ -65,6 +65,7 @@ describe("harness", () => {
     );
 
     expect(input.response_format).toBe("json");
+    expect(input.messages[0]?.content).toContain("Return valid json only");
     expect(input.messages[0]?.content).toContain("\"allowed_tools\": \"web_to_markdown [risk=low]\"");
     expect(input.messages[0]?.content).toContain("\"allowed_types\": [");
   });

@@ -65,6 +65,7 @@ export async function buildHarnessInput(
           {
             instruction: buildTaskInstruction(task),
             output_contract: {
+              format: "Return valid json only. Do not wrap the json in markdown fences.",
               allowed_types: ["tool_call", "final"],
               tool_call_shape: {
                 type: "tool_call",
