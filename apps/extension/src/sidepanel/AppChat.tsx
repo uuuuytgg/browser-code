@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { skaVersion } from "@ska/shared";
 
-import { MessageList } from "./components/MessageList";
+import { MessageList, DefaultEmptyState } from "./components/MessageList";
 import { QuickActions, type QuickAction } from "./components/QuickActions";
 import { Composer } from "./components/Composer";
 import { StatusBar } from "./components/StatusBar";
@@ -73,9 +73,7 @@ async function getMessages(sessionID: string): Promise<ChatMessage[]> {
 }
 
 export function AppChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "welcome", role: "assistant", text: "已就绪。发送消息或点快捷按钮让 agent 开始工作。" },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
   const sessionID = useRef<string | null>(null);
@@ -145,7 +143,7 @@ export function AppChat() {
   return (
     <main className="app-shell">
       <StatusBar connected={connected} status={busy ? "processing" : "idle"} statusMessage="" currentUrl="" />
-      <MessageList messages={messages} />
+      <MessageList messages={messages} onEmpty={<DefaultEmptyState />} />
       <section className="composer-area">
         <QuickActions disabled={busy} onAction={onQuickAction} />
         <Composer disabled={busy} placeholder="描述任务" sendLabel="发送" onSend={onChatSend} />
