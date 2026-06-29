@@ -143,6 +143,14 @@ button, input, textarea, select { font: inherit; }
   color: var(--primary);
 }
 
+.topbar-logo {
+  width: 140px;
+  height: 18px;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+}
+
 .topbar h1 {
   margin: 0;
   font-size: 15px;
@@ -182,37 +190,33 @@ button, input, textarea, select { font: inherit; }
   transition: opacity var(--transition-normal);
 }
 
-.status-ok {
-  background: var(--primary);
+/* Green = success */
+.s-ok {
+  background: oklch(0.55 0.14 145);
+  box-shadow: 0 0 6px oklch(0.55 0.14 145 / 0.6);
 }
 
-.status-err {
-  background: var(--error);
+/* Red = error / disconnected */
+.s-err {
+  background: oklch(0.58 0.18 25);
+  box-shadow: 0 0 6px oklch(0.58 0.18 25 / 0.6);
 }
 
-.status-busy {
-  background: var(--warning);
+/* Yellow = busy (pulsing) */
+.s-busy {
+  background: oklch(0.70 0.14 85);
+  box-shadow: 0 0 6px oklch(0.70 0.14 85 / 0.6);
 }
 
-.status-busy::after {
+.s-busy::after {
   opacity: 1;
-  background: var(--warning);
-  animation: status-ring 1.5s ease-in-out infinite;
-}
-
-.status-warn {
-  background: var(--warning);
-}
-
-.status-warn::after {
-  opacity: 1;
-  background: var(--warning);
-  animation: status-ring 1.5s ease-in-out infinite;
+  background: oklch(0.70 0.14 85);
+  animation: status-ring 1.2s ease-in-out infinite;
 }
 
 @keyframes status-ring {
-  0%   { transform: scale(1); opacity: 0.4; }
-  100% { transform: scale(2.2); opacity: 0; }
+  0%   { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(2.5); opacity: 0; }
 }
 
 /* ── Platform badge ─────────────────────────────────────────────── */

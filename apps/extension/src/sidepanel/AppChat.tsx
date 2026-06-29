@@ -5,6 +5,7 @@ import { MessageList, DefaultEmptyState } from "./components/MessageList";
 import { QuickActions, type QuickAction } from "./components/QuickActions";
 import { Composer } from "./components/Composer";
 import { StatusBar } from "./components/StatusBar";
+import { useAgentStatus } from "./hooks/useAgentStatus";
 
 type ChatMessage = { id: string; role: "user" | "assistant" | "status" | "error"; text: string };
 
@@ -75,7 +76,7 @@ async function getMessages(sessionID: string): Promise<ChatMessage[]> {
 export function AppChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connected, setConnected] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { status, setStatus } = useAgentStatus();
   const sessionID = useRef<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const knownMessageIDs = useRef(new Set<string>());
@@ -95,23 +96,35 @@ export function AppChat() {
   // 开始轮询消息
   const startPolling = useCallback(async (sid: string) => {
     stopPolling();
+    let gotResponse = false;
     pollTimer.current = setInterval(async () => {
       try {
         const msgs = await getMessages(sid);
         for (const msg of msgs) {
           if (knownMessageIDs.current.has(msg.id)) continue;
           knownMessageIDs.current.add(msg.id);
+          gotResponse = true;
           setMessages((prev) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
             return [...prev, msg];
           });
         }
+
+        // If we got a response and there are no more new messages coming in, mark as success
+        if (gotResponse) {
+          // Check if the last assistant message is non-status (has real content)
+          const lastAssistant = msgs.filter(m => m.role === "assistant").pop();
+          if (lastAssistant && lastAssistant.text !== "(工具调用中...)") {
+            stopPolling();
+            setStatus("success");
+          }
+        }
       } catch { /* skip */ }
     }, 1000);
-  }, [stopPolling]);
+  }, [stopPolling, setStatus]);
 
   async function send(text: string) {
-    setBusy(true);
+    setStatus("busy");
     try {
       const sid = await createSession();
       sessionID.current = sid;
@@ -121,9 +134,8 @@ export function AppChat() {
       await sendPrompt(sid, prompt);
       startPolling(sid);
     } catch (err) {
+      setStatus("error");
       setMessages((prev) => [...prev, { id: Date.now().toString(), role: "error", text: err instanceof Error ? err.message : "发送失败" }]);
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -140,13 +152,21 @@ export function AppChat() {
   // 清理
   useEffect(() => () => stopPolling(), [stopPolling]);
 
+  // 状态消息映射
+  const statusMessages: Record<string, string> = {
+    idle: connected ? "就绪" : "未连接",
+    busy: "处理中...",
+    success: "完成",
+    error: "出错",
+  };
+
   return (
     <main className="app-shell">
-      <StatusBar connected={connected} status={busy ? "processing" : "idle"} statusMessage="" currentUrl="" />
+      <StatusBar connected={connected} status={status} statusMessage={statusMessages[status]} />
       <MessageList messages={messages} onEmpty={<DefaultEmptyState />} />
       <section className="composer-area">
-        <QuickActions disabled={busy} onAction={onQuickAction} />
-        <Composer disabled={busy} placeholder="描述任务" sendLabel="发送" onSend={onChatSend} />
+        <QuickActions disabled={status === "busy"} onAction={onQuickAction} />
+        <Composer disabled={status === "busy"} placeholder="描述任务" sendLabel="发送" onSend={onChatSend} />
       </section>
     </main>
   );
