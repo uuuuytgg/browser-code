@@ -1,172 +1,143 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { skaVersion } from "@ska/shared";
-
 import { MessageList, DefaultEmptyState } from "./components/MessageList";
 import { QuickActions, type QuickAction } from "./components/QuickActions";
 import { Composer } from "./components/Composer";
 import { StatusBar } from "./components/StatusBar";
 import { useAgentStatus } from "./hooks/useAgentStatus";
 
-type ChatMessage = { id: string; role: "user" | "assistant" | "status" | "error"; text: string };
+type RawMessage = {
+  id: string;
+  role: string;
+  text: string;
+};
 
-export const extensionAppInfo = {
-  name: "@ska/extension",
-  displayName: "Browser Code Extension",
-  stage: 4,
-  version: skaVersion,
-} as const;
-
-function chromeApi(): any {
-  try {
-    return (globalThis as { chrome?: any }).chrome ?? null;
-  } catch {
-    return null;
-  }
-}
-
-const BASE_URL = "http://127.0.0.1:34567";
+const BASE = "http://127.0.0.1:34567";
 const AUTH = "Basic " + btoa("opencode:opencode");
 
-async function getPageUrl(): Promise<string | null> {
-  const api = chromeApi();
-  if (!api?.tabs?.query) return null;
-  try {
-    const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-    return tab?.url ?? null;
-  } catch {
-    return null;
-  }
+async function api(path: string, opts?: RequestInit) {
+  const res = await fetch(`${BASE}${path}`, {
+    ...opts,
+    headers: { Authorization: AUTH, "content-type": "application/json", ...opts?.headers },
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res;
 }
 
-async function createSession(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/session`, {
-    method: "POST",
-    headers: { Authorization: AUTH, "content-type": "application/json" },
-    body: JSON.stringify({ title: "Browser Code" }),
-  });
-  if (!res.ok) throw new Error(`创建会话失败: ${res.status}`);
-  const data = await res.json();
-  return data.id;
-}
-
-async function sendPrompt(sessionID: string, text: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/session/${sessionID}/prompt_async`, {
-    method: "POST",
-    headers: { Authorization: AUTH, "content-type": "application/json" },
-    body: JSON.stringify({ parts: [{ type: "text", text }] }),
-  });
-  if (res.status !== 204) throw new Error(`发送失败: ${res.status}`);
-}
-
-async function getMessages(sessionID: string): Promise<ChatMessage[]> {
-  const res = await fetch(`${BASE_URL}/session/${sessionID}/message`, {
-    headers: { Authorization: AUTH },
-  });
-  if (!res.ok) return [];
-  const raw: Array<{ info: { id: string; role: string; finish?: string }; parts: Array<{ type: string; text?: string }> }> = await res.json();
-  return raw
-    .filter((m) => m.info.role === "assistant" && !m.info.finish?.includes("tool-calls"))
-    .map((m) => ({
-      id: m.info.id,
-      role: "assistant" as const,
-      text: m.parts.filter((p) => p.type === "text" && !p.text?.startsWith("```")).map((p) => p.text ?? "").join("\n") || "(工具调用中...)",
-    }));
+function chromeApi() {
+  try { return (globalThis as any).chrome; } catch { return null; }
 }
 
 export function AppChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [connected, setConnected] = useState(false);
+  const [msgs, setMsgs] = useState<RawMessage[]>([]);
   const { status, setStatus } = useAgentStatus();
-  const sessionID = useRef<string | null>(null);
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const knownMessageIDs = useRef(new Set<string>());
+  const sidRef = useRef<string | null>(null);
+  const seen = useRef(new Set<string>());
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const urlSentRef = useRef(false);
+  const currentTabUrl = useRef<string | null>(null);
 
-  // 连接检查
-  useEffect(() => {
-    fetch(`${BASE_URL}/session?limit=1`, { headers: { Authorization: AUTH } })
-      .then((r) => setConnected(r.ok))
-      .catch(() => setConnected(false));
+  const stopPoll = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
 
-  // 停止轮询
-  const stopPolling = useCallback(() => {
-    if (pollTimer.current) { clearInterval(pollTimer.current); pollTimer.current = null; }
-  }, []);
-
-  // 开始轮询消息
-  const startPolling = useCallback(async (sid: string) => {
-    stopPolling();
-    let gotResponse = false;
-    pollTimer.current = setInterval(async () => {
+  const poll = useCallback(async (sid: string) => {
+    stopPoll();
+    seen.current.clear();
+    pollRef.current = setInterval(async () => {
       try {
-        const msgs = await getMessages(sid);
-        for (const msg of msgs) {
-          if (knownMessageIDs.current.has(msg.id)) continue;
-          knownMessageIDs.current.add(msg.id);
-          gotResponse = true;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-        }
-
-        // If we got a response and there are no more new messages coming in, mark as success
-        if (gotResponse) {
-          // Check if the last assistant message is non-status (has real content)
-          const lastAssistant = msgs.filter(m => m.role === "assistant").pop();
-          if (lastAssistant && lastAssistant.text !== "(工具调用中...)") {
-            stopPolling();
-            setStatus("success");
-          }
+        const res = await api(`/session/${sid}/message`);
+        const raw: Array<{ info: { id: string; role: string }; parts: Array<{ type: string; text?: string }> }> = await res.json();
+        for (const m of raw) {
+          if (seen.current.has(m.info.id)) continue;
+          seen.current.add(m.info.id);
+          const text = m.parts.map(p => p.text || "").join("\n").trim();
+          setMsgs(prev => prev.some(x => x.id === m.info.id) ? prev : [...prev, { id: m.info.id, role: m.info.role, text }]);
         }
       } catch { /* skip */ }
     }, 1000);
-  }, [stopPolling, setStatus]);
+  }, [stopPoll]);
 
-  async function send(text: string) {
+  const send = useCallback(async (text: string) => {
     setStatus("busy");
     try {
-      const sid = await createSession();
-      sessionID.current = sid;
-      const url = await getPageUrl();
-      const prompt = url ? `当前页面：${url}\n\n用户指令：${text}` : text;
-      knownMessageIDs.current.clear();
-      await sendPrompt(sid, prompt);
-      startPolling(sid);
-    } catch (err) {
+      const res = await api("/session", { method: "POST", body: JSON.stringify({ title: "Browser Code" }) });
+      const { id } = await res.json();
+      sidRef.current = id;
+      const payload = text;
+      await api(`/session/${id}/prompt_async`, { method: "POST", body: JSON.stringify({ parts: [{ type: "text", text: payload }] }) });
+      poll(id);
+    } catch {
       setStatus("error");
-      setMessages((prev) => [...prev, { id: Date.now().toString(), role: "error", text: err instanceof Error ? err.message : "发送失败" }]);
     }
-  }
+  }, [poll, setStatus]);
 
-  async function onQuickAction(action: QuickAction) {
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", text: action.label }]);
-    await send(action.promptHint);
-  }
+  // 初始：获取当前 tab URL
+  useEffect(() => {
+    const ch = chromeApi();
+    if (!ch?.tabs?.query) return;
+    ch.tabs.query({ active: true, currentWindow: true }).then(([tab]: any[]) => {
+      if (tab?.url) currentTabUrl.current = tab.url;
+    });
+  }, []);
 
-  async function onChatSend(userText: string) {
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", text: userText }]);
-    await send(userText);
-  }
+  // 监听 tab 切换 → 触发新一轮
+  useEffect(() => {
+    const ch = chromeApi();
+    if (!ch?.tabs?.onActivated) return;
+    const handler = async ({ tabId }: { tabId: number }) => {
+      const tab = await ch.tabs.get(tabId);
+      if (tab?.url && tab.url !== currentTabUrl.current) {
+        currentTabUrl.current = tab.url;
+        urlSentRef.current = false;
+        // 自动发送 URL 到当前会话
+        const sid = sidRef.current;
+        if (sid) {
+          await api(`/session/${sid}/prompt_async`, { method: "POST", body: JSON.stringify({ parts: [{ type: "text", text: `当前页面：${tab.url}` }] }) });
+        }
+      }
+    };
+    ch.tabs.onActivated.addListener(handler);
+    return () => ch.tabs.onActivated.removeListener(handler);
+  }, []);
 
-  // 清理
-  useEffect(() => () => stopPolling(), [stopPolling]);
+  useEffect(() => () => stopPoll(), [stopPoll]);
 
-  // 状态消息映射
-  const statusMessages: Record<string, string> = {
-    idle: connected ? "就绪" : "未连接",
-    busy: "处理中...",
-    success: "完成",
-    error: "出错",
-  };
+  const onSend = useCallback(async (text: string) => {
+    const sid = sidRef.current;
+    const ch = chromeApi();
+    let url = "";
+    try {
+      if (ch?.tabs?.query) {
+        const [tab] = await ch.tabs.query({ active: true, currentWindow: true });
+        url = tab?.url || "";
+      }
+    } catch {}
+
+    // 第一次或切换 tab 后带 URL，否则纯对话
+    const needUrl = !urlSentRef.current && url;
+    const payload = needUrl ? `当前页面：${url}\n\n${text}` : text;
+    urlSentRef.current = true;
+
+    if (sid) {
+      setMsgs(prev => [...prev, { id: Date.now().toString(), role: "user", text }]);
+      await api(`/session/${sid}/prompt_async`, { method: "POST", body: JSON.stringify({ parts: [{ type: "text", text: payload }] }) });
+    } else {
+      setMsgs(prev => [...prev, { id: Date.now().toString(), role: "user", text }]);
+      await send(payload);
+    }
+  }, [send]);
+
+  const onQuickAction = useCallback(async (action: QuickAction) => {
+    await onSend(action.promptHint);
+  }, [onSend]);
 
   return (
     <main className="app-shell">
-      <StatusBar connected={connected} status={status} statusMessage={statusMessages[status]} />
-      <MessageList messages={messages} onEmpty={<DefaultEmptyState />} />
+      <StatusBar connected={true} status={status} statusMessage="" />
+      <MessageList messages={msgs.map(m => ({ id: m.id, role: m.role as any, text: m.text }))} onEmpty={<DefaultEmptyState />} />
       <section className="composer-area">
         <QuickActions disabled={status === "busy"} onAction={onQuickAction} />
-        <Composer disabled={status === "busy"} placeholder="描述任务" sendLabel="发送" onSend={onChatSend} />
+        <Composer disabled={status === "busy"} placeholder="输入消息..." sendLabel="发送" onSend={onSend} />
       </section>
     </main>
   );
