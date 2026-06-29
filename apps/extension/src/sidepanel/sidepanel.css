@@ -23,68 +23,76 @@ textarea {
   background: linear-gradient(135deg, rgba(48, 96, 86, 0.14), transparent 42%), #f7f4ed;
 }
 
+/* ── Topbar / StatusBar ─────────────────────────────────────────── */
+
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid #ded6ca;
   background: rgba(255, 252, 246, 0.9);
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
+}
+
+.topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .topbar p {
-  margin: 4px 0 0;
+  margin: 0;
   color: #657067;
   font-size: 12px;
 }
 
-.vault-strip {
-  display: flex;
-  gap: 8px;
-  padding: 10px 16px;
-  color: #4e5b52;
-  border-bottom: 1px solid #e5ddd1;
-  font-size: 12px;
+/* ── Status dot variants ────────────────────────────────────────── */
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.vault-strip strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.status-ok {
+  background: #3d8b65;
+}
+.status-err {
+  background: #c05b4d;
+}
+.status-busy {
+  background: #d4a437;
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+.status-warn {
+  background: #e07b30;
 }
 
-.settings-panel {
-  display: grid;
-  gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid #ded6ca;
-  background: #fffaf0;
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
-.settings-panel label {
-  display: grid;
-  gap: 5px;
-  color: #39443c;
-  font-size: 12px;
+/* ── Platform badge ─────────────────────────────────────────────── */
+
+.platform-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e8e2d2;
+  color: #5a665b;
 }
 
-.settings-panel input,
-.settings-panel select,
-.input-row textarea {
-  width: 100%;
-  border: 1px solid #cfc6b8;
-  border-radius: 8px;
-  padding: 9px 10px;
-  background: #fffdf8;
-  color: #1b1f24;
-}
+/* ── Messages ───────────────────────────────────────────────────── */
 
 .messages {
   flex: 1;
@@ -131,7 +139,9 @@ textarea {
   border-color: #efb8a9;
 }
 
-.composer {
+/* ── Composer area (quick actions + input) ──────────────────────── */
+
+.composer-area {
   padding: 12px;
   border-top: 1px solid #ded6ca;
   background: rgba(255, 252, 246, 0.96);
@@ -152,6 +162,21 @@ textarea {
   background: #fffdf8;
   color: #263229;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.quick-actions button:hover:not(:disabled) {
+  background: #f0ebe0;
+}
+
+.quick-actions button:active:not(:disabled) {
+  background: #e4dccd;
+}
+
+/* ── Composer (textarea + send) ─────────────────────────────────── */
+
+.composer {
+  /* Composer component is a child of .composer-area */
 }
 
 .input-row {
@@ -162,7 +187,13 @@ textarea {
 }
 
 .input-row textarea {
+  width: 100%;
   resize: none;
+  border: 1px solid #cfc6b8;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fffdf8;
+  color: #1b1f24;
 }
 
 .primary-button {
@@ -171,9 +202,99 @@ textarea {
   padding: 10px 14px;
   background: #2f665d;
   color: #fffdf8;
+  cursor: pointer;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #245249;
 }
 
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+/* ── Confirm Dialog ─────────────────────────────────────────────── */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.confirm-card {
+  background: #fffdf8;
+  border: 1px solid #ded6ca;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+}
+
+.confirm-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.confirm-card p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #4e5b52;
+  line-height: 1.5;
+}
+
+.confirm-title-warn {
+  color: #c05b4d;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.confirm-danger {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: #c05b4d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.confirm-danger:hover {
+  background: #a44d40;
+}
+
+/* ── Settings panel (unused for now, kept for future) ──────────── */
+
+.settings-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #ded6ca;
+  background: #fffaf0;
+}
+
+.settings-panel label {
+  display: grid;
+  gap: 5px;
+  color: #39443c;
+  font-size: 12px;
+}
+
+.settings-panel input,
+.settings-panel select {
+  width: 100%;
+  border: 1px solid #cfc6b8;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fffdf8;
+  color: #1b1f24;
 }

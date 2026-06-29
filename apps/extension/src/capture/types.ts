@@ -12,7 +12,7 @@ export type PageContext = {
   meta: Record<string, string>;
 };
 
-export type BridgeTaskStatus =
+export type AgentTaskStatus =
   | "idle"
   | "capturing"
   | "sending"
