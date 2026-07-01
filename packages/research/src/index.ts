@@ -1,67 +1,83 @@
-import type { VaultContentType, VideoPlatform } from "@ska/schemas";
-import { scanPageResourcesToolSpec } from "@ska/tool-resource";
-import { saveMarkdownNoteToolSpec } from "@ska/tool-vault";
-import {
-  detectVideoPlatform,
-  fetchTranscriptToolSpec,
-  ffmpegExtractAudioToolSpec
-} from "@ska/tool-video";
-import { webToMarkdownToolSpec } from "@ska/tool-web";
-import { planGitHubDiscovery, type GitHubDiscoveryPlan } from "./github";
+import { planGitHubSearchSteps } from "./github";
 
-export { githubCacheSchemaSql, planGitHubDiscovery } from "./github";
+export {
+  buildGitHubSearchQueries,
+  extractGitHubRepository,
+  planGitHubSearchSteps
+} from "./github";
 export type {
-  GitHubAccessMode,
-  GitHubDataset,
-  GitHubDiscoveryPlan,
+  GitHubSearchKind,
+  GitHubSearchQuery,
   GitHubRepositoryRef
 } from "./github";
 
-export type ResearchRoute =
-  | "local_answer"
-  | "direct_url_ingest"
-  | "external_discovery"
-  | "github_research"
-  | "video_discovery";
+export type InputDispatch =
+  | {
+      kind: "existing_url_pipeline";
+      url: string;
+      reason: string;
+    }
+  | {
+      kind: "proreader";
+      query: string;
+      reason: string;
+    };
 
-export type ProviderKind =
+export type QueryIntent =
+  | "local_wiki_question"
+  | "code_tooling_question"
+  | "knowledge_definition_question"
+  | "official_docs_question"
+  | "web_research_question"
+  | "video_platform_discovery"
+  | "social_platform_discovery"
+  | "trend_ecosystem_discovery"
+  | "vault_ingest_request";
+
+export type ProviderId =
   | "llm_wiki_lite"
-  | "direct_url_existing_ingest"
-  | "github_database"
+  | "websearch"
+  | "webfetch"
+  | "github"
+  | "wikipedia"
   | "official_docs"
-  | "web_discovery"
-  | "video_discovery";
+  | "youtube_data_api"
+  | "bilibili_mcp"
+  | "douyin_mcp"
+  | "xiaohongshu_mcp"
+  | "tiktok_mcp"
+  | "site_search";
 
-export type DirectUrlAdapterKind = "video" | "web" | "resource";
+export type QueryRoute = {
+  intent: QueryIntent;
+  mode: "answer" | "discovery_ingest";
+  providers: ProviderId[];
+  requiresHumanReview: boolean;
+  requiresVaultWrite: boolean;
+  reason: string;
+};
 
-export type ResearchRequest = {
-  query: string;
-  url?: string;
-  intent?: "answer" | "discover" | "ingest";
+export type ProviderStep = {
+  id: string;
+  provider: ProviderId;
+  action: "search" | "fetch";
+  input: Record<string, unknown>;
+  requiresApproval: boolean;
 };
 
 export type ProviderPlan = {
-  route: ResearchRoute;
-  providers: ProviderKind[];
-  reviewRequired: boolean;
-  writesVaultDirectly: false;
-  directUrlAdapter?: DirectUrlAdapterPlan;
-  githubDiscovery?: GitHubDiscoveryPlan;
-  notes: string[];
+  mode: "answer" | "discovery_ingest";
+  steps: ProviderStep[];
 };
 
-export type DirectUrlAdapterPlan = {
-  kind: DirectUrlAdapterKind;
-  url: string;
-  platform?: VideoPlatform;
-  contentType: VaultContentType;
-  usesExistingTools: string[];
-  handoff: "existing_ingest_pipeline";
+export type ProReaderRequest = {
+  query: string;
+  requestedMode?: "answer" | "discovery_ingest";
 };
 
 export type ResearchCandidate = {
   id: string;
-  provider: ProviderKind;
+  provider: ProviderId;
   title: string;
   url: string;
   summary?: string;
@@ -72,150 +88,261 @@ export type EvidencePack = {
   candidate: ResearchCandidate;
   evidenceMarkdown: string;
   sourceUrls: string[];
-  preparedContentType?: VaultContentType;
 };
 
-export function planResearch(request: ResearchRequest): ProviderPlan {
-  if (request.url) {
-    return planDirectUrl(request.url);
+export function dispatchInput(input: string): InputDispatch {
+  const trimmed = input.trim();
+  const url = extractExplicitUrl(trimmed);
+
+  if (url) {
+    return {
+      kind: "existing_url_pipeline",
+      url,
+      reason: "Explicit URLs are handled by the existing BrowserCode URL pipeline before ProReader."
+    };
   }
 
+  return {
+    kind: "proreader",
+    query: trimmed,
+    reason: "Natural-language or fuzzy queries enter ProReader routing."
+  };
+}
+
+export function routeQuery(request: ProReaderRequest): QueryRoute {
   const query = request.query.trim();
-  if (isGithubResearchQuery(query)) {
-    const githubDiscovery = planGitHubDiscovery(query);
+
+  if (isVaultIngestRequest(query) || request.requestedMode === "discovery_ingest") {
     return {
-      route: "github_research",
-      providers: ["github_database", "official_docs", "web_discovery"],
-      reviewRequired: true,
-      writesVaultDirectly: false,
-      githubDiscovery,
-      notes: [
-        "Use GitHub API/gh/cache as the primary discovery source.",
-        "Do not write vault until a candidate is approved."
-      ]
+      intent: "vault_ingest_request",
+      mode: "discovery_ingest",
+      providers: ["websearch", "github", "wikipedia", "youtube_data_api", "bilibili_mcp", "site_search"],
+      requiresHumanReview: true,
+      requiresVaultWrite: true,
+      reason: "The user asked to collect or prepare external material for knowledge ingestion."
     };
   }
 
   if (isVideoDiscoveryQuery(query)) {
     return {
-      route: "video_discovery",
-      providers: ["video_discovery", "web_discovery"],
-      reviewRequired: true,
-      writesVaultDirectly: false,
-      notes: [
-        "Discovery only returns candidate video URLs.",
-        "Approved URLs must hand off to the existing direct video ingest path."
-      ]
+      intent: "video_platform_discovery",
+      mode: "discovery_ingest",
+      providers: ["websearch", "site_search", "youtube_data_api", "bilibili_mcp", "douyin_mcp", "xiaohongshu_mcp", "tiktok_mcp"],
+      requiresHumanReview: true,
+      requiresVaultWrite: false,
+      reason: "The user is asking for fuzzy platform search over video/social sources."
     };
   }
 
-  if (request.intent === "discover") {
+  if (isLocalWikiQuery(query)) {
     return {
-      route: "external_discovery",
-      providers: ["official_docs", "web_discovery", "github_database"],
-      reviewRequired: true,
-      writesVaultDirectly: false,
-      notes: [
-        "External discovery prepares candidates for human review.",
-        "Formal knowledge enters through the existing classified vault ingest flow."
-      ]
+      intent: "local_wiki_question",
+      mode: "answer",
+      providers: ["llm_wiki_lite"],
+      requiresHumanReview: false,
+      requiresVaultWrite: false,
+      reason: "The user is asking about existing BrowserCode/local knowledge."
+    };
+  }
+
+  if (isKnowledgeDefinitionQuery(query)) {
+    return {
+      intent: "knowledge_definition_question",
+      mode: "answer",
+      providers: ["llm_wiki_lite", "wikipedia", "official_docs", "websearch"],
+      requiresHumanReview: false,
+      requiresVaultWrite: false,
+      reason: "Definition/background questions benefit from local knowledge and reference providers."
+    };
+  }
+
+  if (isCodeToolingQuery(query)) {
+    return {
+      intent: "code_tooling_question",
+      mode: "answer",
+      providers: ["llm_wiki_lite", "github", "official_docs", "websearch"],
+      requiresHumanReview: false,
+      requiresVaultWrite: false,
+      reason: "Code/tooling questions benefit from local knowledge, GitHub, official docs, and web search."
     };
   }
 
   return {
-    route: "local_answer",
-    providers: ["llm_wiki_lite"],
-    reviewRequired: false,
-    writesVaultDirectly: false,
-    notes: [
-      "Answer from LLM Wiki Lite answer_context.",
-      "Do not scan raw vault files as the default local answer path."
-    ]
+    intent: "web_research_question",
+    mode: "answer",
+    providers: ["llm_wiki_lite", "websearch", "webfetch"],
+    requiresHumanReview: false,
+    requiresVaultWrite: false,
+    reason: "Default answer route uses local context and existing web search/fetch."
   };
 }
 
-export function planDirectUrl(url: string): ProviderPlan {
-  const parsed = new URL(url);
-  const platform = detectVideoPlatform(url);
+export function planProviders(route: QueryRoute, query: string): ProviderPlan {
+  const steps: ProviderStep[] = [];
 
-  if (platform !== "unknown") {
-    return {
-      route: "direct_url_ingest",
-      providers: ["direct_url_existing_ingest"],
-      reviewRequired: true,
-      writesVaultDirectly: false,
-      directUrlAdapter: {
-        kind: "video",
-        url,
-        platform,
-        contentType: "video",
-        usesExistingTools: [
-          fetchTranscriptToolSpec.name,
-          ffmpegExtractAudioToolSpec.name,
-          saveMarkdownNoteToolSpec.name
-        ],
-        handoff: "existing_ingest_pipeline"
-      },
-      notes: [
-        "Do not implement a new video downloader or transcript fetcher here.",
-        "Route approved direct video URLs to the existing video and vault tools."
-      ]
-    };
-  }
+  for (const provider of route.providers) {
+    if (provider === "llm_wiki_lite") {
+      steps.push({
+        id: "local-wiki-search",
+        provider,
+        action: "search",
+        input: { query },
+        requiresApproval: false
+      });
+      continue;
+    }
 
-  if (looksLikeDirectResource(parsed)) {
-    return {
-      route: "direct_url_ingest",
-      providers: ["direct_url_existing_ingest"],
-      reviewRequired: true,
-      writesVaultDirectly: false,
-      directUrlAdapter: {
-        kind: "resource",
-        url,
-        contentType: "resource",
-        usesExistingTools: [
-          scanPageResourcesToolSpec.name,
-          saveMarkdownNoteToolSpec.name
-        ],
-        handoff: "existing_ingest_pipeline"
-      },
-      notes: [
-        "Treat direct resource URLs as existing resource/vault tool handoffs.",
-        "Do not download high-risk media from the research provider layer."
-      ]
-    };
+    if (provider === "github") {
+      steps.push(...planGitHubSearchSteps(query));
+      continue;
+    }
+
+    if (provider === "official_docs") {
+      steps.push({
+        id: "official-docs-search",
+        provider,
+        action: "search",
+        input: { query: `${query} official docs OR documentation OR API reference` },
+        requiresApproval: false
+      });
+      continue;
+    }
+
+    if (provider === "wikipedia") {
+      steps.push({
+        id: "wikipedia-search",
+        provider,
+        action: "search",
+        input: { query, language: "zh", fallbackLanguage: "en" },
+        requiresApproval: false
+      });
+      continue;
+    }
+
+    if (isPlatformDiscoveryProvider(provider)) {
+      steps.push({
+        id: `${provider}-search`,
+        provider,
+        action: "search",
+        input: { query, limit: 20 },
+        requiresApproval: false
+      });
+      continue;
+    }
+
+    if (provider === "site_search") {
+      steps.push(...buildSiteSearchSteps(query));
+      continue;
+    }
+
+    steps.push({
+      id: `${provider}-search`,
+      provider,
+      action: "search",
+      input: { query },
+      requiresApproval: false
+    });
   }
 
   return {
-    route: "direct_url_ingest",
-    providers: ["direct_url_existing_ingest"],
-    reviewRequired: false,
-    writesVaultDirectly: false,
-    directUrlAdapter: {
-      kind: "web",
-      url,
-      contentType: "article",
-      usesExistingTools: [
-        webToMarkdownToolSpec.name,
-        saveMarkdownNoteToolSpec.name
-      ],
-      handoff: "existing_ingest_pipeline"
-    },
-    notes: [
-      "Use the existing web_to_markdown and save_markdown_note tools.",
-      "The research layer only plans the handoff; it does not fetch or persist by itself."
-    ]
+    mode: route.mode,
+    steps
   };
 }
 
-function isGithubResearchQuery(query: string) {
-  return /\b(github|repo|repository|issue|pull request|pr|code search|release)\b/i.test(query);
+export function planProReader(request: ProReaderRequest): { route: QueryRoute; plan: ProviderPlan } {
+  const route = routeQuery(request);
+  return {
+    route,
+    plan: planProviders(route, request.query)
+  };
+}
+
+/** @deprecated Explicit URLs should be dispatched to the existing BrowserCode URL pipeline before ProReader. */
+export type ResearchRoute =
+  | "local_answer"
+  | "external_discovery"
+  | "github_research"
+  | "video_discovery";
+
+/** @deprecated Use ProviderId and ProviderStep for ProReader provider planning. */
+export type ProviderKind =
+  | "llm_wiki_lite"
+  | "github"
+  | "official_docs"
+  | "websearch"
+  | "webfetch"
+  | "wikipedia"
+  | "video_discovery";
+
+/** @deprecated Use dispatchInput + routeQuery + planProviders. */
+export type ResearchRequest = {
+  query: string;
+  requestedMode?: "answer" | "discovery_ingest";
+};
+
+/** @deprecated Use QueryRoute and ProviderPlan. */
+export type LegacyProviderPlan = {
+  route: ResearchRoute;
+  providers: ProviderKind[];
+  reviewRequired: boolean;
+  writesVaultDirectly: false;
+  notes: string[];
+};
+
+/** @deprecated Use planProReader for fuzzy ProReader queries. */
+export function planResearch(request: ResearchRequest): { route: QueryRoute; plan: ProviderPlan } {
+  return planProReader({
+    query: request.query,
+    requestedMode: request.requestedMode
+  });
+}
+
+function extractExplicitUrl(input: string) {
+  const match = input.match(/https?:\/\/[^\s<>"']+/i);
+  return match?.[0];
+}
+
+function isLocalWikiQuery(query: string) {
+  return /我之前|本地知识|已有知识|browser-code|browsercode|vault|wiki lite/i.test(query);
+}
+
+function isCodeToolingQuery(query: string) {
+  return /github|repo|repository|issue|pull request|\bpr\b|cli|mcp|api|sdk|报错|部署|配置|typescript|python|bun|opencode|claude code|codex/i.test(query);
+}
+
+function isKnowledgeDefinitionQuery(query: string) {
+  return /是什么|定义|历史|原理|背景|概念|人物|组织|技术路线|wikipedia|维基/i.test(query);
 }
 
 function isVideoDiscoveryQuery(query: string) {
-  return /\b(youtube|bilibili|video|字幕|视频|b站)\b/i.test(query);
+  return /youtube|bilibili|b站|抖音|小红书|tiktok|视频|教程|平台上有什么|大家怎么看|内容生态|热门内容/i.test(query);
 }
 
-function looksLikeDirectResource(url: URL) {
-  return /\.(pdf|docx?|pptx?|xlsx?|zip|rar|7z|tar|gz)$/i.test(url.pathname);
+function isVaultIngestRequest(query: string) {
+  return /帮我搜集|整理一批资料|加入知识库|准备入库|资料包|evidence pack|外部资料|候选池/i.test(query);
+}
+
+function isPlatformDiscoveryProvider(provider: ProviderId) {
+  return provider === "youtube_data_api"
+    || provider === "bilibili_mcp"
+    || provider === "douyin_mcp"
+    || provider === "xiaohongshu_mcp"
+    || provider === "tiktok_mcp";
+}
+
+function buildSiteSearchSteps(query: string): ProviderStep[] {
+  return [
+    ["youtube", "site:youtube.com/watch"],
+    ["bilibili", "site:bilibili.com/video"],
+    ["douyin", "site:douyin.com"],
+    ["xiaohongshu", "site:xiaohongshu.com"],
+    ["tiktok", "site:tiktok.com"]
+  ].map(([id, site]) => ({
+    id: `site-search-${id}`,
+    provider: "websearch" as const,
+    action: "search" as const,
+    input: { query: `${query} ${site}` },
+    requiresApproval: false
+  }));
 }

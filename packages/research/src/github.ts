@@ -1,111 +1,42 @@
-export type GitHubDataset =
-  | "repositories"
-  | "readme_docs"
-  | "issues"
-  | "pull_requests"
-  | "releases"
-  | "code_search";
+import type { ProviderStep } from "./index";
 
-export type GitHubAccessMode = "api_or_gh" | "web_fallback";
+export type GitHubSearchKind =
+  | "repository"
+  | "issue"
+  | "pull_request"
+  | "release"
+  | "code";
 
 export type GitHubRepositoryRef = {
   owner: string;
   repo: string;
 };
 
-export type GitHubDiscoveryPlan = {
-  provider: "github_database";
+export type GitHubSearchQuery = {
+  kind: GitHubSearchKind;
   query: string;
   repository?: GitHubRepositoryRef;
-  datasets: GitHubDataset[];
-  accessOrder: GitHubAccessMode[];
-  cache: {
-    databasePath: ".tmp/research/github.sqlite";
-    tables: GitHubDataset[];
-  };
-  reviewRequired: true;
-  writesVaultDirectly: false;
 };
 
-export const githubCacheSchemaSql = [
-  `CREATE TABLE IF NOT EXISTS repositories (
-    id TEXT PRIMARY KEY,
-    full_name TEXT NOT NULL UNIQUE,
-    html_url TEXT NOT NULL,
-    description TEXT,
-    stars INTEGER,
-    forks INTEGER,
-    open_issues INTEGER,
-    default_branch TEXT,
-    fetched_at TEXT NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS readme_docs (
-    id TEXT PRIMARY KEY,
-    repository_full_name TEXT NOT NULL,
-    path TEXT NOT NULL,
-    html_url TEXT NOT NULL,
-    markdown TEXT NOT NULL,
-    fetched_at TEXT NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS issues (
-    id TEXT PRIMARY KEY,
-    repository_full_name TEXT NOT NULL,
-    number INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    state TEXT NOT NULL,
-    labels_json TEXT NOT NULL,
-    html_url TEXT NOT NULL,
-    updated_at TEXT,
-    fetched_at TEXT NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS pull_requests (
-    id TEXT PRIMARY KEY,
-    repository_full_name TEXT NOT NULL,
-    number INTEGER NOT NULL,
-    title TEXT NOT NULL,
-    state TEXT NOT NULL,
-    merged INTEGER,
-    html_url TEXT NOT NULL,
-    updated_at TEXT,
-    fetched_at TEXT NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS releases (
-    id TEXT PRIMARY KEY,
-    repository_full_name TEXT NOT NULL,
-    tag_name TEXT NOT NULL,
-    name TEXT,
-    html_url TEXT NOT NULL,
-    published_at TEXT,
-    fetched_at TEXT NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS code_search (
-    id TEXT PRIMARY KEY,
-    repository_full_name TEXT,
-    path TEXT NOT NULL,
-    html_url TEXT NOT NULL,
-    fragment TEXT,
-    language TEXT,
-    fetched_at TEXT NOT NULL
-  )`
-] as const;
+export function planGitHubSearchSteps(query: string): ProviderStep[] {
+  return buildGitHubSearchQueries(query).map((searchQuery) => ({
+    id: `github-${searchQuery.kind}-search`,
+    provider: "github" as const,
+    action: "search" as const,
+    input: searchQuery,
+    requiresApproval: false
+  }));
+}
 
-export function planGitHubDiscovery(query: string): GitHubDiscoveryPlan {
+export function buildGitHubSearchQueries(query: string): GitHubSearchQuery[] {
   const repository = extractGitHubRepository(query);
-  const datasets = inferDatasets(query, repository);
+  const kinds = inferSearchKinds(query);
 
-  return {
-    provider: "github_database",
-    query,
-    repository,
-    datasets,
-    accessOrder: ["api_or_gh", "web_fallback"],
-    cache: {
-      databasePath: ".tmp/research/github.sqlite",
-      tables: datasets
-    },
-    reviewRequired: true,
-    writesVaultDirectly: false
-  };
+  return kinds.map((kind) => ({
+    kind,
+    query: buildSearchQuery(query, kind, repository),
+    repository
+  }));
 }
 
 export function extractGitHubRepository(input: string): GitHubRepositoryRef | undefined {
@@ -119,45 +50,59 @@ export function extractGitHubRepository(input: string): GitHubRepositoryRef | un
   };
 }
 
-function inferDatasets(query: string, repository?: GitHubRepositoryRef): GitHubDataset[] {
+function inferSearchKinds(query: string): GitHubSearchKind[] {
   const normalized = query.toLowerCase();
-  const datasets = new Set<GitHubDataset>();
+  const kinds = new Set<GitHubSearchKind>();
+  const includeRepository = /\b(repo|repository|github)\b/.test(normalized) || /仓库|项目/.test(query);
 
-  if (repository || /\b(repo|repository|github)\b/.test(normalized)) {
-    datasets.add("repositories");
-    datasets.add("readme_docs");
-  }
-
-  if (/\b(issue|issues|bug|bugs)\b/.test(normalized)) {
-    datasets.add("issues");
+  if (/\b(issue|issues|bug|bugs)\b/.test(normalized) || /问题|缺陷|报错/.test(query)) {
+    kinds.add("issue");
   }
 
   if (/\b(pr|pull request|pull requests|merge|merged)\b/.test(normalized)) {
-    datasets.add("pull_requests");
+    kinds.add("pull_request");
   }
 
-  if (/\b(release|releases|changelog|version|tag)\b/.test(normalized)) {
-    datasets.add("releases");
+  if (/\b(release|releases|changelog|version|tag)\b/.test(normalized) || /版本|发布|更新日志/.test(query)) {
+    kinds.add("release");
   }
 
-  if (hasCodeSearchIntent(normalized)) {
-    datasets.add("code_search");
+  if (hasCodeSearchIntent(query)) {
+    kinds.add("code");
   }
 
-  if (datasets.size === 0) {
-    datasets.add("repositories");
-    datasets.add("readme_docs");
-    datasets.add("issues");
-    datasets.add("pull_requests");
-    datasets.add("releases");
+  if (kinds.size === 0) {
+    return ["repository", "issue", "pull_request", "release", "code"];
   }
 
-  return [...datasets];
+  if (includeRepository || !kinds.has("repository")) {
+    kinds.add("repository");
+  }
+
+  return [...kinds];
 }
 
 function hasCodeSearchIntent(query: string) {
+  const normalized = query.toLowerCase();
   return (
-    /\b(code search|source|implementation|function|class|symbol)\b/.test(query) ||
+    /\b(code search|source|implementation|function|class|symbol)\b/.test(normalized) ||
     /代码|源码|实现/.test(query)
   );
+}
+
+function buildSearchQuery(query: string, kind: GitHubSearchKind, repository?: GitHubRepositoryRef) {
+  const repoQualifier = repository ? ` repo:${repository.owner}/${repository.repo}` : "";
+
+  switch (kind) {
+    case "issue":
+      return `${query} is:issue${repoQualifier}`;
+    case "pull_request":
+      return `${query} is:pr${repoQualifier}`;
+    case "release":
+      return `${query} release${repoQualifier}`;
+    case "code":
+      return `${query}${repoQualifier}`;
+    case "repository":
+      return query;
+  }
 }
