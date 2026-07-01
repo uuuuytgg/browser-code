@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planResearch } from "./index";
+import { githubCacheSchemaSql, planGitHubDiscovery, planResearch } from "./index";
 
 describe("planResearch", () => {
   it("routes ordinary knowledge questions to LLM Wiki Lite", () => {
@@ -74,6 +74,40 @@ describe("planResearch", () => {
     expect(plan.providers).toContain("github_database");
     expect(plan.reviewRequired).toBe(true);
     expect(plan.writesVaultDirectly).toBe(false);
+    expect(plan.githubDiscovery?.datasets).toEqual([
+      "repositories",
+      "readme_docs",
+      "issues",
+      "pull_requests",
+      "releases"
+    ]);
+  });
+
+  it("plans GitHub repository discovery with cache tables and access fallbacks", () => {
+    const plan = planGitHubDiscovery(
+      "研究 https://github.com/sst/opencode 的 issue、PR、release 和源码实现"
+    );
+
+    expect(plan.repository).toEqual({ owner: "sst", repo: "opencode" });
+    expect(plan.datasets).toEqual([
+      "repositories",
+      "readme_docs",
+      "issues",
+      "pull_requests",
+      "releases",
+      "code_search"
+    ]);
+    expect(plan.accessOrder).toEqual(["api_or_gh", "web_fallback"]);
+    expect(plan.cache.databasePath).toBe(".tmp/research/github.sqlite");
+    expect(plan.reviewRequired).toBe(true);
+    expect(plan.writesVaultDirectly).toBe(false);
+  });
+
+  it("declares GitHub cache schema without coupling it to vault writes", () => {
+    expect(githubCacheSchemaSql.join("\n")).toContain("CREATE TABLE IF NOT EXISTS repositories");
+    expect(githubCacheSchemaSql.join("\n")).toContain("CREATE TABLE IF NOT EXISTS pull_requests");
+    expect(githubCacheSchemaSql.join("\n")).toContain("CREATE TABLE IF NOT EXISTS code_search");
+    expect(githubCacheSchemaSql.join("\n")).not.toContain("vault");
   });
 
   it("routes video discovery to candidates before existing direct URL ingest", () => {

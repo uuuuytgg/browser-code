@@ -7,6 +7,15 @@ import {
   ffmpegExtractAudioToolSpec
 } from "@ska/tool-video";
 import { webToMarkdownToolSpec } from "@ska/tool-web";
+import { planGitHubDiscovery, type GitHubDiscoveryPlan } from "./github";
+
+export { githubCacheSchemaSql, planGitHubDiscovery } from "./github";
+export type {
+  GitHubAccessMode,
+  GitHubDataset,
+  GitHubDiscoveryPlan,
+  GitHubRepositoryRef
+} from "./github";
 
 export type ResearchRoute =
   | "local_answer"
@@ -37,6 +46,7 @@ export type ProviderPlan = {
   reviewRequired: boolean;
   writesVaultDirectly: false;
   directUrlAdapter?: DirectUrlAdapterPlan;
+  githubDiscovery?: GitHubDiscoveryPlan;
   notes: string[];
 };
 
@@ -72,11 +82,13 @@ export function planResearch(request: ResearchRequest): ProviderPlan {
 
   const query = request.query.trim();
   if (isGithubResearchQuery(query)) {
+    const githubDiscovery = planGitHubDiscovery(query);
     return {
       route: "github_research",
       providers: ["github_database", "official_docs", "web_discovery"],
       reviewRequired: true,
       writesVaultDirectly: false,
+      githubDiscovery,
       notes: [
         "Use GitHub API/gh/cache as the primary discovery source.",
         "Do not write vault until a candidate is approved."
