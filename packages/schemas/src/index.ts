@@ -47,7 +47,15 @@ export const CaptureTaskSchema = z.object({
   page: z.object({
     url: z.string().url(),
     title: z.string(),
-    platform: z.enum(["youtube", "bilibili", "web", "unknown"]).optional(),
+    platform: z.enum([
+      "youtube",
+      "bilibili",
+      "douyin",
+      "xiaohongshu",
+      "tiktok",
+      "web",
+      "unknown"
+    ]).optional(),
     html: z.string().optional(),
     selected_text: z.string().optional(),
     links: z.array(PageLinkSchema).optional(),

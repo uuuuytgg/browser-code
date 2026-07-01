@@ -45,6 +45,21 @@ describe("CaptureTaskSchema", () => {
     expect(parsed.user_instruction).toContain("文章");
   });
 
+  it("accepts newly enumerated social video capture platforms", () => {
+    const parsed = CaptureTaskSchema.parse({
+      task_id: "task_douyin_001",
+      task_type: "summarize_video",
+      page: {
+        url: "https://www.douyin.com/jingxuan/video/7340000000000000000",
+        title: "Douyin Selected Video",
+        platform: "douyin"
+      },
+      created_at: "2026-06-25T00:00:00+08:00"
+    });
+
+    expect(parsed.page.platform).toBe("douyin");
+  });
+
   it("rejects an unsupported task type", () => {
     expect(() =>
       CaptureTaskSchema.parse({
