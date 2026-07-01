@@ -6,6 +6,7 @@ import {
   dispatchInput,
   getProviderAdapter,
   planProReader,
+  resolveProviderConfig,
   routeQuery
 } from "./index";
 
@@ -144,6 +145,52 @@ describe("answer system planning", () => {
     });
     expect(getProviderAdapter("webfetch")).toMatchObject({
       kind: "agent_builtin"
+    });
+  });
+});
+
+describe("provider configuration", () => {
+  it("uses configured MCP tool names for platform discovery instead of hard-coding them", () => {
+    const config = resolveProviderConfig({
+      providers: {
+        bilibili_mcp: {
+          mode: "mcp",
+          toolName: "configured_bilibili_search"
+        }
+      }
+    });
+    const { plan } = planProReader({ query: "YouTube Bilibili MCP video discovery" }, config);
+
+    expect(plan.steps.find((step) => step.id === "bilibili_mcp-search")).toMatchObject({
+      provider: "bilibili_mcp",
+      input: {
+        providerMode: "mcp",
+        toolName: "configured_bilibili_search"
+      }
+    });
+  });
+
+  it("falls back to websearch when a configured provider is disabled", () => {
+    const config = resolveProviderConfig({
+      providers: {
+        wikipedia: {
+          enabled: false,
+          fallbackProviders: ["websearch"]
+        }
+      }
+    });
+    const { plan } = planProReader({ query: "photosynthesis wikipedia history" }, config);
+
+    expect(plan.steps.some((step) => step.id === "wikipedia-search")).toBe(false);
+    expect(plan.steps).toContainEqual({
+      id: "wikipedia-fallback-websearch-search",
+      provider: "websearch",
+      action: "search",
+      input: {
+        query: "photosynthesis wikipedia history",
+        disabledProvider: "wikipedia"
+      },
+      requiresApproval: false
     });
   });
 });

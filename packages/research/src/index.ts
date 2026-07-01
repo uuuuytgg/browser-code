@@ -1,4 +1,5 @@
 import { planGitHubSearchSteps } from "./github";
+import { getProviderConfig, resolveProviderConfig } from "./provider-config";
 
 export {
   buildAnswerContextDraft,
@@ -20,6 +21,17 @@ export type {
   GitHubSearchQuery,
   GitHubRepositoryRef
 } from "./github";
+export {
+  defaultProviderConfig,
+  getProviderConfig,
+  resolveProviderConfig
+} from "./provider-config";
+export type {
+  ProReaderProviderConfig,
+  ProReaderProviderConfigInput,
+  ProviderConfigEntry,
+  ProviderMode
+} from "./provider-config";
 
 export type InputDispatch =
   | {
@@ -187,10 +199,16 @@ export function routeQuery(request: ProReaderRequest): QueryRoute {
   };
 }
 
-export function planProviders(route: QueryRoute, query: string): ProviderPlan {
+export function planProviders(route: QueryRoute, query: string, config = resolveProviderConfig()): ProviderPlan {
   const steps: ProviderStep[] = [];
 
   for (const provider of route.providers) {
+    const providerConfig = getProviderConfig(config, provider);
+    if (!providerConfig.enabled) {
+      steps.push(...buildFallbackSteps(provider, query, providerConfig.fallbackProviders ?? []));
+      continue;
+    }
+
     if (provider === "llm_wiki_lite") {
       steps.push({
         id: "local-wiki-search",
@@ -200,7 +218,8 @@ export function planProviders(route: QueryRoute, query: string): ProviderPlan {
           query,
           adapter: "harness/make_answer_context.ts",
           outputPath: ".tmp/answer_context.md",
-          internalKnowledgePath: "llm_wiki_lite"
+          internalKnowledgePath: "llm_wiki_lite",
+          providerMode: providerConfig.mode
         },
         requiresApproval: false
       });
@@ -217,7 +236,11 @@ export function planProviders(route: QueryRoute, query: string): ProviderPlan {
         id: "official-docs-search",
         provider,
         action: "search",
-        input: { query: `${query} official docs OR documentation OR API reference` },
+        input: {
+          query: `${query} official docs OR documentation OR API reference`,
+          providerMode: providerConfig.mode,
+          fallbackProviders: providerConfig.fallbackProviders ?? []
+        },
         requiresApproval: false
       });
       continue;
@@ -228,7 +251,13 @@ export function planProviders(route: QueryRoute, query: string): ProviderPlan {
         id: "wikipedia-search",
         provider,
         action: "search",
-        input: { query, language: "zh", fallbackLanguage: "en" },
+        input: {
+          query,
+          language: "zh",
+          fallbackLanguage: "en",
+          providerMode: providerConfig.mode,
+          userAgentEnv: providerConfig.userAgentEnv
+        },
         requiresApproval: false
       });
       continue;
@@ -239,7 +268,14 @@ export function planProviders(route: QueryRoute, query: string): ProviderPlan {
         id: `${provider}-search`,
         provider,
         action: "search",
-        input: { query, limit: 20 },
+        input: {
+          query,
+          limit: 20,
+          providerMode: providerConfig.mode,
+          toolName: providerConfig.toolName ?? null,
+          apiKeyEnv: providerConfig.apiKeyEnv,
+          fallbackProviders: providerConfig.fallbackProviders ?? []
+        },
         requiresApproval: false
       });
       continue;
@@ -254,7 +290,7 @@ export function planProviders(route: QueryRoute, query: string): ProviderPlan {
       id: `${provider}-search`,
       provider,
       action: "search",
-      input: { query },
+      input: { query, providerMode: providerConfig.mode },
       requiresApproval: false
     });
   }
@@ -265,11 +301,14 @@ export function planProviders(route: QueryRoute, query: string): ProviderPlan {
   };
 }
 
-export function planProReader(request: ProReaderRequest): { route: QueryRoute; plan: ProviderPlan } {
+export function planProReader(
+  request: ProReaderRequest,
+  config = resolveProviderConfig()
+): { route: QueryRoute; plan: ProviderPlan } {
   const route = routeQuery(request);
   return {
     route,
-    plan: planProviders(route, request.query)
+    plan: planProviders(route, request.query, config)
   };
 }
 
@@ -358,6 +397,19 @@ function buildSiteSearchSteps(query: string): ProviderStep[] {
     provider: "websearch" as const,
     action: "search" as const,
     input: { query: `${query} ${site}` },
+    requiresApproval: false
+  }));
+}
+
+function buildFallbackSteps(provider: ProviderId, query: string, fallbackProviders: ProviderId[]): ProviderStep[] {
+  return fallbackProviders.map((fallbackProvider) => ({
+    id: `${provider}-fallback-${fallbackProvider}-search`,
+    provider: fallbackProvider,
+    action: "search",
+    input: {
+      query,
+      disabledProvider: provider
+    },
     requiresApproval: false
   }));
 }
