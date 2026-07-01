@@ -1,6 +1,16 @@
 import { planGitHubSearchSteps } from "./github";
 
 export {
+  buildAnswerContextDraft,
+  getProviderAdapter
+} from "./answer";
+export type {
+  AnswerContextDraft,
+  AnswerContextSection,
+  ProviderAdapterDescriptor,
+  ProviderAdapterKind
+} from "./answer";
+export {
   buildGitHubSearchQueries,
   extractGitHubRepository,
   planGitHubSearchSteps
@@ -186,7 +196,12 @@ export function planProviders(route: QueryRoute, query: string): ProviderPlan {
         id: "local-wiki-search",
         provider,
         action: "search",
-        input: { query },
+        input: {
+          query,
+          adapter: "harness/make_answer_context.ts",
+          outputPath: ".tmp/answer_context.md",
+          internalKnowledgePath: "llm_wiki_lite"
+        },
         requiresApproval: false
       });
       continue;

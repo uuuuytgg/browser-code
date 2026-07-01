@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildAnswerContextDraft,
   buildGitHubSearchQueries,
   dispatchInput,
+  getProviderAdapter,
   planProReader,
   routeQuery
 } from "./index";
@@ -101,6 +103,48 @@ describe("planProReader", () => {
     expect(plan.steps.some((step) => step.id === "bilibili_mcp-search")).toBe(true);
     expect(plan.steps.every((step) => step.action === "search")).toBe(true);
     expect(plan.steps.every((step) => step.requiresApproval === false)).toBe(true);
+  });
+});
+
+describe("answer system planning", () => {
+  it("plans LLM Wiki Lite through the existing answer-context harness", () => {
+    const { plan } = planProReader({ query: "BrowserCode LLM Wiki Lite" });
+
+    expect(plan.steps[0]).toMatchObject({
+      id: "local-wiki-search",
+      provider: "llm_wiki_lite",
+      action: "search",
+      input: {
+        adapter: "harness/make_answer_context.ts",
+        outputPath: ".tmp/answer_context.md",
+        internalKnowledgePath: "llm_wiki_lite"
+      },
+      requiresApproval: false
+    });
+  });
+
+  it("keeps answer mode as no-review and no-knowledge-write while using adapters", () => {
+    const route = routeQuery({ query: "MCP definition and background" });
+    const { plan } = planProReader({ query: "MCP definition and background" });
+    const draft = buildAnswerContextDraft({ query: "MCP definition and background", route, plan });
+
+    expect(draft.outputPath).toBe(".tmp/answer/answer_context.md");
+    expect(draft.sideEffects).toEqual({
+      writesVault: false,
+      writesKnowledgeBase: false,
+      requiresHumanReview: false
+    });
+    expect(getProviderAdapter("llm_wiki_lite")).toMatchObject({
+      kind: "lite_wiki_harness",
+      command: {
+        tool: "bun",
+        args: ["run", "harness/make_answer_context.ts", "<query>"],
+        outputPath: ".tmp/answer_context.md"
+      }
+    });
+    expect(getProviderAdapter("webfetch")).toMatchObject({
+      kind: "agent_builtin"
+    });
   });
 });
 
