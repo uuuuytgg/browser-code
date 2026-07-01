@@ -1,5 +1,7 @@
 import { planGitHubSearchSteps } from "./github";
+import { planOfficialDocsSearchSteps } from "./official-docs";
 import { getProviderConfig, resolveProviderConfig } from "./provider-config";
+import { planWikipediaSearchSteps } from "./wikipedia";
 
 export {
   buildAnswerContextDraft,
@@ -22,6 +24,12 @@ export type {
   GitHubRepositoryRef
 } from "./github";
 export {
+  planOfficialDocsSearchSteps
+} from "./official-docs";
+export type {
+  OfficialDocsSearchQuery
+} from "./official-docs";
+export {
   defaultProviderConfig,
   getProviderConfig,
   resolveProviderConfig
@@ -32,6 +40,12 @@ export type {
   ProviderConfigEntry,
   ProviderMode
 } from "./provider-config";
+export {
+  planWikipediaSearchSteps
+} from "./wikipedia";
+export type {
+  WikipediaSearchQuery
+} from "./wikipedia";
 
 export type InputDispatch =
   | {
@@ -232,34 +246,12 @@ export function planProviders(route: QueryRoute, query: string, config = resolve
     }
 
     if (provider === "official_docs") {
-      steps.push({
-        id: "official-docs-search",
-        provider,
-        action: "search",
-        input: {
-          query: `${query} official docs OR documentation OR API reference`,
-          providerMode: providerConfig.mode,
-          fallbackProviders: providerConfig.fallbackProviders ?? []
-        },
-        requiresApproval: false
-      });
+      steps.push(...planOfficialDocsSearchSteps(query, providerConfig));
       continue;
     }
 
     if (provider === "wikipedia") {
-      steps.push({
-        id: "wikipedia-search",
-        provider,
-        action: "search",
-        input: {
-          query,
-          language: "zh",
-          fallbackLanguage: "en",
-          providerMode: providerConfig.mode,
-          userAgentEnv: providerConfig.userAgentEnv
-        },
-        requiresApproval: false
-      });
+      steps.push(...planWikipediaSearchSteps(query, providerConfig));
       continue;
     }
 

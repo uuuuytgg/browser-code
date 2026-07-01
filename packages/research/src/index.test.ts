@@ -5,7 +5,9 @@ import {
   buildGitHubSearchQueries,
   dispatchInput,
   getProviderAdapter,
+  planOfficialDocsSearchSteps,
   planProReader,
+  planWikipediaSearchSteps,
   resolveProviderConfig,
   routeQuery
 } from "./index";
@@ -192,6 +194,71 @@ describe("provider configuration", () => {
       },
       requiresApproval: false
     });
+  });
+});
+
+describe("core fuzzy provider planners", () => {
+  it("plans Wikipedia search and summary fetch with zh-first and en fallback", () => {
+    const config = resolveProviderConfig();
+    const steps = planWikipediaSearchSteps("MCP protocol history", config.providers.wikipedia);
+
+    expect(steps).toEqual([
+      {
+        id: "wikipedia-opensearch-zh",
+        provider: "wikipedia",
+        action: "search",
+        input: {
+          query: "MCP protocol history",
+          language: "zh",
+          fallbackLanguage: "en",
+          endpoint: "opensearch",
+          providerMode: "api",
+          userAgentEnv: "WIKIMEDIA_USER_AGENT"
+        },
+        requiresApproval: false
+      },
+      {
+        id: "wikipedia-summary-fetch",
+        provider: "wikipedia",
+        action: "fetch",
+        input: {
+          query: "MCP protocol history",
+          language: "zh",
+          fallbackLanguage: "en",
+          endpoint: "summary",
+          selectedFrom: "wikipedia-opensearch-zh",
+          providerMode: "api",
+          userAgentEnv: "WIKIMEDIA_USER_AGENT"
+        },
+        requiresApproval: false
+      }
+    ]);
+  });
+
+  it("plans official docs as template search over preferred documentation domains", () => {
+    const config = resolveProviderConfig();
+    const steps = planOfficialDocsSearchSteps("OpenAI responses API", config.providers.official_docs);
+
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatchObject({
+      id: "official-docs-search",
+      provider: "official_docs",
+      action: "search",
+      input: {
+        query: "OpenAI responses API",
+        providerMode: "websearch_fallback",
+        fallbackProviders: ["websearch", "webfetch"]
+      },
+      requiresApproval: false
+    });
+    expect(steps[0].input.templates).toEqual(
+      expect.arrayContaining([
+        "OpenAI responses API official docs",
+        "OpenAI responses API documentation",
+        "OpenAI responses API API reference",
+        "OpenAI responses API site:platform.openai.com"
+      ])
+    );
   });
 });
 
