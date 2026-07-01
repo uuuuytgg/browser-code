@@ -33,6 +33,21 @@ describe("planResearch", () => {
     expect(plan.writesVaultDirectly).toBe(false);
   });
 
+  it("routes newly enumerated social video URLs to existing video ingest handoff", () => {
+    const plan = planResearch({
+      query: "保存这个抖音精选视频",
+      url: "https://www.douyin.com/jingxuan/video/7340000000000000000"
+    });
+
+    expect(plan.directUrlAdapter).toMatchObject({
+      kind: "video",
+      platform: "douyin",
+      contentType: "video",
+      handoff: "existing_ingest_pipeline"
+    });
+    expect(plan.directUrlAdapter?.usesExistingTools).toContain("save_markdown_note");
+  });
+
   it("routes direct web URLs to existing web and vault tools", () => {
     const plan = planResearch({
       query: "保存这个网页",

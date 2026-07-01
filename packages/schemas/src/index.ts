@@ -225,7 +225,14 @@ export const TranscriptLineSchema = z.object({
 });
 export type TranscriptLine = z.infer<typeof TranscriptLineSchema>;
 
-export const VideoPlatformSchema = z.enum(["youtube", "bilibili", "unknown"]);
+export const VideoPlatformSchema = z.enum([
+  "youtube",
+  "bilibili",
+  "douyin",
+  "xiaohongshu",
+  "tiktok",
+  "unknown"
+]);
 export type VideoPlatform = z.infer<typeof VideoPlatformSchema>;
 
 export const FetchTranscriptInputSchema = z.object({

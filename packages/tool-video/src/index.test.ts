@@ -63,4 +63,19 @@ describe("tool-video", () => {
   it("detects unsupported platforms", () => {
     expect(detectVideoPlatform("https://example.com/video/1")).toBe("unknown");
   });
+
+  it("detects mainstream short-video and social video platforms by explicit hosts", () => {
+    expect(detectVideoPlatform("https://www.douyin.com/video/7340000000000000000")).toBe("douyin");
+    expect(detectVideoPlatform("https://www.douyin.com/jingxuan/video/7340000000000000000")).toBe("douyin");
+    expect(detectVideoPlatform("https://v.douyin.com/iExample/")).toBe("douyin");
+    expect(detectVideoPlatform("https://www.xiaohongshu.com/explore/65f000000000000000000000")).toBe("xiaohongshu");
+    expect(detectVideoPlatform("https://xhslink.com/a/example")).toBe("xiaohongshu");
+    expect(detectVideoPlatform("https://www.tiktok.com/@creator/video/7340000000000000000")).toBe("tiktok");
+    expect(detectVideoPlatform("https://vm.tiktok.com/ZMexample/")).toBe("tiktok");
+  });
+
+  it("does not infer video platform from generic path words", () => {
+    expect(detectVideoPlatform("https://example.com/video/1")).toBe("unknown");
+    expect(detectVideoPlatform("https://news.example.com/watch/story")).toBe("unknown");
+  });
 });
