@@ -4,6 +4,29 @@ import { getProviderConfig, resolveProviderConfig } from "./provider-config";
 import { planWikipediaSearchSteps } from "./wikipedia";
 
 export {
+  assertNoDiscoveryEnrichment,
+  assertProviderPlanIsSearchOnly,
+  buildDiscoveryCandidatePool,
+  collectDiscoveryCandidates,
+  createDiscoveryRun,
+  dedupeDiscoveryCandidates,
+  rankDiscoveryCandidates,
+  scanDiscoveryRisks,
+  stopAtHumanReview,
+  transitionDiscoveryRun
+} from "./discovery";
+export type {
+  BlockedDiscoveryFutureStatus,
+  DiscoveryAuditEvent,
+  DiscoveryCandidate,
+  DiscoveryRiskLevel,
+  DiscoveryRiskSignal,
+  DiscoveryRun,
+  DiscoveryRunStatus,
+  DiscoveryTransitionTarget,
+  RawDiscoveryCandidate
+} from "./discovery";
+export {
   buildAnswerContextDraft,
   getProviderAdapter
 } from "./answer";
@@ -241,17 +264,17 @@ export function planProviders(route: QueryRoute, query: string, config = resolve
     }
 
     if (provider === "github") {
-      steps.push(...planGitHubSearchSteps(query));
+      steps.push(...filterDiscoverySteps(route, planGitHubSearchSteps(query)));
       continue;
     }
 
     if (provider === "official_docs") {
-      steps.push(...planOfficialDocsSearchSteps(query, providerConfig));
+      steps.push(...filterDiscoverySteps(route, planOfficialDocsSearchSteps(query, providerConfig)));
       continue;
     }
 
     if (provider === "wikipedia") {
-      steps.push(...planWikipediaSearchSteps(query, providerConfig));
+      steps.push(...filterDiscoverySteps(route, planWikipediaSearchSteps(query, providerConfig)));
       continue;
     }
 
@@ -404,4 +427,9 @@ function buildFallbackSteps(provider: ProviderId, query: string, fallbackProvide
     },
     requiresApproval: false
   }));
+}
+
+function filterDiscoverySteps(route: QueryRoute, steps: ProviderStep[]) {
+  if (route.mode !== "discovery_ingest") return steps;
+  return steps.filter((step) => step.action === "search");
 }
