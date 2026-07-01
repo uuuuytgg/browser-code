@@ -16,10 +16,8 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@ska/extension": ["apps/extension/src/index.ts"],
-      "@ska/local-bridge": ["apps/local-bridge/src/index.ts"],
-      "@ska/runtime": ["apps/runtime/src/index.ts"],
       "@ska/mcp-server": ["apps/mcp-server/src/index.ts"],
+      "@ska/research": ["packages/research/src/index.ts"],
       "@ska/schemas": ["packages/schemas/src/index.ts"],
       "@ska/shared": ["packages/shared/src/index.ts"],
       "@ska/tool-web": ["packages/tool-web/src/index.ts"],
@@ -28,5 +26,6 @@
       "@ska/tool-vault": ["packages/tool-vault/src/index.ts"]
     }
   },
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "packages/**/*.d.ts"],
   "exclude": ["dist", "node_modules"]
 }
