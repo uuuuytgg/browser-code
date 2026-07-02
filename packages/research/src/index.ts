@@ -105,6 +105,13 @@ export type {
   ProviderExecutionResult
 } from "./provider-executor";
 export {
+  buildProviderExecutableActions
+} from "./provider-actions";
+export type {
+  ProviderExecutableAction,
+  ProviderExecutablePlan
+} from "./provider-actions";
+export {
   assertVaultHandoffIsDryRun,
   buildVaultDryRunHandoff
 } from "./vault-adapter";

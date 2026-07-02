@@ -1,6 +1,7 @@
 import { tool } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
 import {
   buildProviderExecutionRequests,
+  buildProviderExecutableActions,
   diagnoseProviderRuntime,
   dispatchInput,
   planProReader,
@@ -78,6 +79,7 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
       config,
     )
     const executionRequests = buildProviderExecutionRequests(plan)
+    const executablePlan = buildProviderExecutableActions(executionRequests)
     const diagnostics = diagnoseProviderRuntime(config, {
       env: process.env,
       availableCommands: args.availableCommands,
@@ -90,9 +92,10 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
         route,
         plan,
         executionRequests,
+        executablePlan,
         diagnostics,
         instructions: [
-          "Use existing BrowserCode websearch/webfetch/video/resource/vault tools for actual work.",
+          "Execute executablePlan.actions with existing BrowserCode tools, configured MCP tools, provider APIs, or CLI commands.",
           "Candidate discovery may collect metadata before review.",
           "Do not enrich discovery candidates until approved by a human review manifest.",
           "Do not write vault, kb, or sqlite from ProReader.",
