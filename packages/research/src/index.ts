@@ -4,6 +4,16 @@ import { getProviderConfig, resolveProviderConfig } from "./provider-config";
 import { planWikipediaSearchSteps } from "./wikipedia";
 
 export {
+  assertEnrichmentUsesApprovedManifest,
+  planEnrichmentFromApprovedManifest
+} from "./enrichment";
+export type {
+  EnrichmentPlan,
+  EnrichmentRisk,
+  EnrichmentStep,
+  EnrichmentStepKind
+} from "./enrichment";
+export {
   assertNoDiscoveryEnrichment,
   assertProviderPlanIsSearchOnly,
   buildDiscoveryCandidatePool,
