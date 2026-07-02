@@ -64,6 +64,19 @@ export type {
   ProviderMode
 } from "./provider-config";
 export {
+  applyReviewDecisions,
+  assertNoUnreviewedCandidatesInManifest,
+  buildApprovedManifest
+} from "./review";
+export type {
+  ApprovedManifest,
+  ApprovedManifestEntry,
+  CandidateReviewDecision,
+  ReviewedDiscoveryCandidate,
+  ReviewedDiscoveryRun,
+  ReviewDecision
+} from "./review";
+export {
   planWikipediaSearchSteps
 } from "./wikipedia";
 export type {
