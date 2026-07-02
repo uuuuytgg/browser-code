@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "browsercode-knowledge": {
+      "command": "bun",
+      "args": ["run", "harness/mcp-server.ts"]
+    },
+    "bilibili-readonly": {
+      "command": "tools/mcp/.venv/Scripts/python.exe",
+      "args": ["tools/mcp/bilibili-readonly-server.py"]
+    }
+  }
+}

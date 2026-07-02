@@ -7,5 +7,37 @@
       "cwd": ".",
       "enabled": true,
     },
+    "bilibili-readonly": {
+      "type": "local",
+      "command": ["tools/mcp/.venv/Scripts/python.exe", "tools/mcp/bilibili-readonly-server.py"],
+      "cwd": ".",
+      "enabled": true,
+    },
+    "bilibili-video-info": {
+      "type": "local",
+      "command": ["tools/mcp/.venv/Scripts/bilibili-video-info-mcp.exe"],
+      "cwd": ".",
+      "enabled": false,
+    },
+    "socialdatax-xhs": {
+      "type": "local",
+      "command": [
+        "cmd",
+        "/c",
+        "npx -y mcp-remote https://mcp.52choujiang.com/xhs/mcp --header \"Authorization: Bearer %SOCIALDATAX_API_KEY%\""
+      ],
+      "cwd": ".",
+      "enabled": false,
+    },
+    "socialdatax-douyin": {
+      "type": "local",
+      "command": [
+        "cmd",
+        "/c",
+        "npx -y @smithery/cli run ychen20141229/douyin-insights --key %SOCIALDATAX_API_KEY%"
+      ],
+      "cwd": ".",
+      "enabled": false,
+    },
   },
 }

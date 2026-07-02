@@ -10,8 +10,8 @@
     }
   },
   "bilibiliSearch": {
-    "enabled": false,
-    "server": "bilibili-mcp",
+    "enabled": true,
+    "server": "bilibili-readonly",
     "source": "github:adoresever/bilibili-mcp",
     "purpose": "discovery",
     "readonlyTools": [

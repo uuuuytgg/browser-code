@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "bilibili-video-info": {
+      "command": "tools/mcp/.venv/Scripts/bilibili-video-info-mcp.exe",
+      "env": {
+        "SESSDATA": "${SESSDATA}"
+      }
+    },
+    "socialdatax-xhs": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx -y mcp-remote https://mcp.52choujiang.com/xhs/mcp --header \"Authorization: Bearer %SOCIALDATAX_API_KEY%\""
+      ]
+    },
+    "socialdatax-douyin": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx -y @smithery/cli run ychen20141229/douyin-insights --key %SOCIALDATAX_API_KEY%"
+      ]
+    }
+  }
+}
