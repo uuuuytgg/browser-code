@@ -22,6 +22,13 @@ export type RuntimeEnvironment = {
 export type McpToolsConfig = Record<string, {
   enabled?: boolean;
   server?: string;
+  source?: string;
+  purpose?: string;
+  transport?: string;
+  url?: string;
+  requiresEnv?: string[];
+  readonlyTools?: string[];
+  disabledWriteTools?: string[];
   tools?: Record<string, string>;
 }>;
 

@@ -10,6 +10,7 @@ export {
 } from "./enrichment";
 export type {
   EnrichmentPlan,
+  EnrichmentMcpToolConfig,
   EnrichmentRisk,
   EnrichmentStep,
   EnrichmentStepKind

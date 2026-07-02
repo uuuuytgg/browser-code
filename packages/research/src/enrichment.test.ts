@@ -93,7 +93,7 @@ describe("enrichment planning", () => {
       ])
     )).toEqual({
       "youtube_data_api-1": 3,
-      "bilibili_mcp-3": 5,
+      "bilibili_mcp-3": 6,
       "github-2": 1,
       "websearch-4": 1
     });
@@ -123,15 +123,37 @@ describe("enrichment planning", () => {
     });
   });
 
-  it("plans Bilibili danmaku and comments as explicit approved enrichment steps", () => {
-    const plan = planEnrichmentFromApprovedManifest(makeManifest());
+  it("plans Bilibili subtitles, danmaku, and comments as explicit approved enrichment steps", () => {
+    const plan = planEnrichmentFromApprovedManifest(makeManifest(), {
+      bilibiliVideoInfo: {
+        enabled: true,
+        server: "bilibili-video-info",
+        tools: {
+          getSubtitle: "get_subtitles",
+          getDanmaku: "get_danmaku",
+          getComments: "get_comments"
+        }
+      }
+    });
+
+    expect(plan.steps.find((step) => step.id === "bilibili_mcp-3-bilibili-subtitles")).toMatchObject({
+      kind: "transcript",
+      tool: "platform_mcp",
+      input: {
+        provider: "bilibili_video_info_mcp",
+        capability: "subtitles",
+        toolName: "get_subtitles"
+      },
+      requiresApproval: true
+    });
 
     expect(plan.steps.find((step) => step.id === "bilibili_mcp-3-bilibili-danmaku")).toMatchObject({
       kind: "danmaku",
       tool: "platform_mcp",
       input: {
-        provider: "bilibili_mcp",
-        capability: "danmaku"
+        provider: "bilibili_video_info_mcp",
+        capability: "danmaku",
+        toolName: "get_danmaku"
       },
       requiresApproval: true
     });
@@ -139,8 +161,9 @@ describe("enrichment planning", () => {
       kind: "comments",
       tool: "platform_mcp",
       input: {
-        provider: "bilibili_mcp",
-        capability: "comments"
+        provider: "bilibili_video_info_mcp",
+        capability: "comments",
+        toolName: "get_comments"
       },
       requiresApproval: true
     });

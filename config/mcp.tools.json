@@ -11,41 +11,92 @@
   },
   "bilibiliSearch": {
     "enabled": false,
-    "server": "bilibili-search",
+    "server": "bilibili-mcp",
+    "source": "github:adoresever/bilibili-mcp",
+    "purpose": "discovery",
+    "readonlyTools": [
+      "bili_search",
+      "bili_comments",
+      "bili_subtitle",
+      "bili_danmaku",
+      "bili_video_info",
+      "bili_crawl",
+      "bili_hot_videos",
+      "bili_hot_buzzwords",
+      "bili_weekly_hot",
+      "bili_rank",
+      "bili_user_info",
+      "bili_user_videos",
+      "bili_favorite_lists",
+      "bili_favorite_content"
+    ],
+    "disabledWriteTools": [
+      "bili_reply",
+      "bili_send_dynamic",
+      "bili_upload_video",
+      "bili_upload_video_multi",
+      "bili_send_opus",
+      "bili_send_message"
+    ],
     "tools": {
-      "search": "general_search",
-      "videoInfo": "get_video_info",
-      "subtitle": "get_video_subtitle",
-      "danmaku": "get_video_danmaku",
-      "comments": "get_video_comments"
+      "search": "bili_search",
+      "videoInfo": "bili_video_info",
+      "subtitle": "bili_subtitle",
+      "danmaku": "bili_danmaku",
+      "comments": "bili_comments",
+      "hotVideos": "bili_hot_videos",
+      "hotBuzzwords": "bili_hot_buzzwords",
+      "rank": "bili_rank"
     }
   },
   "bilibiliVideoInfo": {
     "enabled": false,
     "server": "bilibili-video-info",
+    "source": "github:lesir831/bilibili-video-info-mcp",
+    "purpose": "approved_enrichment",
+    "requiresEnv": ["SESSDATA"],
     "tools": {
-      "getSubtitle": "get_video_subtitle",
-      "getDanmaku": "get_video_danmaku",
-      "getComments": "get_video_comments",
-      "getVideoInfo": "get_video_info"
+      "getSubtitle": "get_subtitles",
+      "getDanmaku": "get_danmaku",
+      "getComments": "get_comments"
     }
   },
   "douyinMcp": {
     "enabled": false,
-    "server": "douyin",
+    "server": "socialdatax-douyin",
+    "source": "smithery:ychen20141229/douyin-insights",
+    "purpose": "discovery_and_approved_enrichment",
+    "requiresEnv": ["SOCIALDATAX_API_KEY"],
     "tools": {
       "workSearch": "work_search",
       "workDetail": "work_detail",
-      "comments": "get_comments"
+      "comments": "get_comments",
+      "commentReplies": "get_comment_replies",
+      "creatorProfile": "creator_profile",
+      "creatorWorks": "creator_works",
+      "hotSearch": "hot_search"
     }
   },
   "xiaohongshuMcp": {
     "enabled": false,
-    "server": "xiaohongshu",
+    "server": "socialdatax-xhs",
+    "source": "github:devinchen2014/xiaohongshu-xhs-rednote-mcp",
+    "purpose": "discovery_and_approved_enrichment",
+    "transport": "streamable-http",
+    "url": "https://mcp.52choujiang.com/xhs/mcp",
+    "requiresEnv": ["SOCIALDATAX_API_KEY"],
     "tools": {
-      "noteSearch": "note_search",
-      "noteDetail": "note_detail",
-      "comments": "get_comments"
+      "noteSearch": "xhs_search_notes",
+      "hotList": "xhs_get_search_hot_list",
+      "noteDetailByUrl": "xhs_get_note_detail_by_note_url",
+      "noteDetail": "xhs_get_note_detail_by_note_id",
+      "comments": "xhs_get_note_comments_by_note_id",
+      "commentsByUrl": "xhs_get_note_comments_by_note_url",
+      "subComments": "xhs_get_note_sub_comments_by_comment_id",
+      "creatorProfile": "xhs_get_user_info_by_user_id",
+      "creatorProfileByUrl": "xhs_get_user_info_by_profile_url",
+      "creatorNotes": "xhs_get_user_posted_notes_by_user_id",
+      "creatorNotesByUrl": "xhs_get_user_posted_notes_by_profile_url"
     }
   },
   "tiktokMcp": {

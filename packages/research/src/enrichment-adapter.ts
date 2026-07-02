@@ -124,6 +124,7 @@ function inferCapability(step: EnrichmentStep): EnrichmentExecutionCapability {
   if (step.tool === "github") return "github_repository_context";
 
   if (step.tool === "platform_mcp") {
+    if (step.kind === "transcript") return "transcript_fetch";
     if (step.kind === "danmaku") return "platform_danmaku";
     if (step.kind === "comments") return "platform_comments";
   }

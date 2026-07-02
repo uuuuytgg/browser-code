@@ -117,6 +117,22 @@ describe("enrichment adapter execution descriptions", () => {
     });
   });
 
+  it("maps Bilibili MCP subtitles to transcript fetch capability after approval", () => {
+    const requests = buildEnrichmentExecutionRequests(makeEnrichmentPlan());
+    const subtitlesRequest = requests.find((request) => request.stepId === "bilibili_mcp-3-bilibili-subtitles");
+
+    expect(subtitlesRequest).toMatchObject({
+      tool: "platform_mcp",
+      capability: "transcript_fetch",
+      requiresApproval: true,
+      input: {
+        provider: "bilibili_video_info_mcp",
+        capability: "subtitles",
+        toolName: "get_subtitles"
+      }
+    });
+  });
+
   it("keeps all execution outputs under the discovery run temp directory", () => {
     const requests = buildEnrichmentExecutionRequests(makeEnrichmentPlan());
 

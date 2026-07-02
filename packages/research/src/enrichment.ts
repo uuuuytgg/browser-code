@@ -34,13 +34,28 @@ export type EnrichmentPlan = {
   };
 };
 
-export function planEnrichmentFromApprovedManifest(manifest: ApprovedManifest): EnrichmentPlan {
+export type EnrichmentMcpToolConfig = {
+  bilibiliVideoInfo?: {
+    enabled?: boolean;
+    server?: string;
+    tools?: {
+      getSubtitle?: string;
+      getDanmaku?: string;
+      getComments?: string;
+    };
+  };
+};
+
+export function planEnrichmentFromApprovedManifest(
+  manifest: ApprovedManifest,
+  mcpConfig: EnrichmentMcpToolConfig = {}
+): EnrichmentPlan {
   assertEnrichmentUsesApprovedManifest(manifest);
 
   return {
     runId: manifest.runId,
     query: manifest.query,
-    steps: manifest.entries.flatMap((entry) => buildStepsForEntry(manifest.runId, entry.candidateId, entry.url)),
+    steps: manifest.entries.flatMap((entry) => buildStepsForEntry(manifest.runId, entry.candidateId, entry.url, mcpConfig)),
     sideEffects: {
       writesVault: false,
       writesKnowledgeBase: false,
@@ -55,7 +70,12 @@ export function assertEnrichmentUsesApprovedManifest(manifest: ApprovedManifest)
   }
 }
 
-function buildStepsForEntry(runId: string, candidateId: string, url: string): EnrichmentStep[] {
+function buildStepsForEntry(
+  runId: string,
+  candidateId: string,
+  url: string,
+  mcpConfig: EnrichmentMcpToolConfig
+): EnrichmentStep[] {
   const outputDir = `.tmp/discovery/runs/${runId}/enrichment/${candidateId}`;
 
   if (isVideoUrl(url)) {
@@ -106,7 +126,25 @@ function buildStepsForEntry(runId: string, candidateId: string, url: string): En
     ];
 
     if (isBilibiliUrl(url)) {
+      const bilibiliTools = mcpConfig.bilibiliVideoInfo?.tools ?? {};
       steps.splice(2, 0,
+        {
+          id: `${candidateId}-bilibili-subtitles`,
+          candidateId,
+          kind: "transcript",
+          tool: "platform_mcp",
+          input: {
+            url,
+            provider: "bilibili_video_info_mcp",
+            capability: "subtitles",
+            toolName: bilibiliTools.getSubtitle ?? "get_subtitles",
+            output: `${outputDir}/bilibili_subtitles.json`
+          },
+          risk: "medium",
+          requiresApproval: true,
+          blockedByDefault: false,
+          outputDir
+        },
         {
           id: `${candidateId}-bilibili-danmaku`,
           candidateId,
@@ -114,8 +152,9 @@ function buildStepsForEntry(runId: string, candidateId: string, url: string): En
           tool: "platform_mcp",
           input: {
             url,
-            provider: "bilibili_mcp",
+            provider: "bilibili_video_info_mcp",
             capability: "danmaku",
+            toolName: bilibiliTools.getDanmaku ?? "get_danmaku",
             output: `${outputDir}/danmaku.json`
           },
           risk: "medium",
@@ -130,8 +169,9 @@ function buildStepsForEntry(runId: string, candidateId: string, url: string): En
           tool: "platform_mcp",
           input: {
             url,
-            provider: "bilibili_mcp",
+            provider: "bilibili_video_info_mcp",
             capability: "comments",
+            toolName: bilibiliTools.getComments ?? "get_comments",
             output: `${outputDir}/comments.json`
           },
           risk: "medium",

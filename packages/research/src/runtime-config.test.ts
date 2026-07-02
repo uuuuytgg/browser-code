@@ -11,9 +11,12 @@ describe("MCP tools runtime bridge", () => {
     const bridge = buildMcpToolsRuntimeBridge({
       bilibiliSearch: {
         enabled: true,
-        server: "bilibili-search",
+        server: "bilibili-mcp",
+        source: "github:adoresever/bilibili-mcp",
+        readonlyTools: ["bili_search"],
+        disabledWriteTools: ["bili_reply"],
         tools: {
-          search: "general_search"
+          search: "bili_search"
         }
       },
       douyinMcp: {
@@ -25,9 +28,13 @@ describe("MCP tools runtime bridge", () => {
       },
       xiaohongshuMcp: {
         enabled: true,
-        server: "xiaohongshu",
+        server: "socialdatax-xhs",
+        source: "github:devinchen2014/xiaohongshu-xhs-rednote-mcp",
+        transport: "streamable-http",
+        url: "https://mcp.52choujiang.com/xhs/mcp",
+        requiresEnv: ["SOCIALDATAX_API_KEY"],
         tools: {
-          noteSearch: "note_search"
+          noteSearch: "xhs_search_notes"
         }
       },
       tiktokMcp: {
@@ -45,7 +52,7 @@ describe("MCP tools runtime bridge", () => {
 
     expect(config.providers.bilibili_mcp).toMatchObject({
       mode: "mcp",
-      toolName: "general_search"
+      toolName: "bili_search"
     });
     expect(config.providers.douyin_mcp).toMatchObject({
       mode: "mcp",
@@ -53,21 +60,21 @@ describe("MCP tools runtime bridge", () => {
     });
     expect(config.providers.xiaohongshu_mcp).toMatchObject({
       mode: "mcp",
-      toolName: "note_search"
+      toolName: "xhs_search_notes"
     });
     expect(config.providers.tiktok_mcp).toMatchObject({
       mode: "mcp",
       toolName: "video_search"
     });
     expect(bridge.configuredMcpTools).toEqual({
-      general_search: "bilibili-search.general_search",
+      bili_search: "bilibili-mcp.bili_search",
       work_search: "douyin.work_search",
-      note_search: "xiaohongshu.note_search",
+      xhs_search_notes: "socialdatax-xhs.xhs_search_notes",
       video_search: "tiktok.video_search"
     });
     expect(diagnostics.find((item) => item.provider === "bilibili_mcp")).toMatchObject({
       status: "ready",
-      configured: ["mcpTool:general_search"]
+      configured: ["mcpTool:bili_search"]
     });
   });
 
