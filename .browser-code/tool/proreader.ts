@@ -92,13 +92,14 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
     const executionRequests = buildProviderExecutionRequests(plan)
     const executablePlan = buildProviderExecutableActions(executionRequests)
     const availableCommands = [...new Set([...(detectAvailableCommands()), ...(args.availableCommands ?? [])])]
+    const runtimeEnv = loadRuntimeEnv()
     const diagnostics = diagnoseProviderRuntime(config, {
-      env: process.env,
+      env: runtimeEnv,
       availableCommands,
       configuredMcpTools,
     })
     const actionReadiness = diagnoseProviderActionReadiness(executablePlan.actions, {
-      env: process.env,
+      env: runtimeEnv,
       availableCommands,
       configuredMcpTools,
     })
@@ -158,6 +159,38 @@ function loadMcpToolsRuntimeBridge() {
 
   const config = JSON.parse(readFileSync(configPath, "utf8")) as McpToolsConfig
   return buildMcpToolsRuntimeBridge(config)
+}
+
+function loadRuntimeEnv() {
+  return {
+    ...readDotEnv(join(process.cwd(), ".env")),
+    ...process.env,
+  }
+}
+
+function readDotEnv(path: string) {
+  if (!existsSync(path)) return {}
+  return Object.fromEntries(
+    readFileSync(path, "utf8")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .map((line) => {
+        const index = line.indexOf("=")
+        if (index === -1) return [line, ""]
+        return [line.slice(0, index).trim().replace(/^\uFEFF/, ""), unquoteEnvValue(line.slice(index + 1).trim())]
+      }),
+  )
+}
+
+function unquoteEnvValue(value: string) {
+  if (
+    (value.startsWith('"') && value.endsWith('"'))
+    || (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1)
+  }
+  return value
 }
 
 function detectAvailableCommands() {
