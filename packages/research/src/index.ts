@@ -105,9 +105,11 @@ export type {
   ProviderExecutionResult
 } from "./provider-executor";
 export {
-  buildProviderExecutableActions
+  buildProviderExecutableActions,
+  diagnoseProviderActionReadiness
 } from "./provider-actions";
 export type {
+  ProviderActionReadiness,
   ProviderExecutableAction,
   ProviderExecutablePlan
 } from "./provider-actions";

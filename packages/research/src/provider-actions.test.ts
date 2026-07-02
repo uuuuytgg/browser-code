@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProviderExecutableActions,
   buildProviderExecutionRequests,
+  diagnoseProviderActionReadiness,
   planProReader,
   resolveProviderConfig
 } from "./index";
@@ -74,5 +75,53 @@ describe("buildProviderExecutableActions", () => {
         expect.stringContaining("site:tiktok.com")
       ])
     );
+  });
+
+  it("diagnoses action-level readiness without disabling agent-owned fallbacks", () => {
+    const config = resolveProviderConfig({
+      providers: {
+        github: { tokenEnv: "GITHUB_TOKEN", command: "gh" },
+        bilibili_mcp: { toolName: "bilibili_search" },
+        douyin_mcp: { toolName: "douyin_search", command: "douyin-cli" }
+      }
+    });
+    const githubPlan = planProReader({ query: "GitHub AI Agent issue" }, config).plan;
+    const platformPlan = planProReader({ query: "B站 抖音 AI Agent 视频" }, config).plan;
+    const actions = [
+      ...buildProviderExecutableActions(buildProviderExecutionRequests(githubPlan)).actions,
+      ...buildProviderExecutableActions(buildProviderExecutionRequests(platformPlan)).actions
+    ];
+    const readiness = diagnoseProviderActionReadiness(actions, {
+      env: {},
+      availableCommands: ["douyin-cli"],
+      configuredMcpTools: {
+        douyin_search: "douyin.work_search"
+      }
+    });
+
+    expect(readiness.find((item) => item.provider === "llm_wiki_lite")).toMatchObject({
+      status: "ready",
+      missing: []
+    });
+    expect(readiness.find((item) => item.provider === "github" && item.kind === "api_request")).toMatchObject({
+      status: "needs_configuration",
+      missing: ["GITHUB_TOKEN"]
+    });
+    expect(readiness.find((item) => item.provider === "github" && item.kind === "agent_tool")).toMatchObject({
+      status: "ready",
+      missing: []
+    });
+    expect(readiness.find((item) => item.provider === "bilibili_mcp" && item.kind === "mcp_tool")).toMatchObject({
+      status: "needs_configuration",
+      missing: ["mcpTool:bilibili_search"]
+    });
+    expect(readiness.find((item) => item.provider === "douyin_mcp" && item.kind === "mcp_tool")).toMatchObject({
+      status: "ready",
+      configured: ["mcpTool:douyin_search"]
+    });
+    expect(readiness.find((item) => item.provider === "douyin_mcp" && item.kind === "shell_command")).toMatchObject({
+      status: "ready",
+      configured: ["command:douyin-cli"]
+    });
   });
 });

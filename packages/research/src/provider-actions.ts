@@ -1,4 +1,5 @@
 import type { ProviderExecutionRequest } from "./provider-executor";
+import type { RuntimeEnvironment } from "./runtime-config";
 
 export type ProviderExecutableAction =
   | {
@@ -46,6 +47,16 @@ export type ProviderExecutablePlan = {
   notes: string[];
 };
 
+export type ProviderActionReadiness = {
+  actionIndex: number;
+  provider: ProviderExecutionRequest["provider"];
+  kind: ProviderExecutableAction["kind"];
+  status: "ready" | "needs_configuration";
+  configured: string[];
+  missing: string[];
+  notes: string[];
+};
+
 const PLATFORM_SITE: Partial<Record<ProviderExecutionRequest["provider"], string>> = {
   youtube_data_api: "youtube.com/watch",
   bilibili_mcp: "bilibili.com/video",
@@ -64,6 +75,32 @@ export function buildProviderExecutableActions(requests: ProviderExecutionReques
       "Discovery actions collect candidates only. Enrichment remains gated by human-approved manifests."
     ]
   };
+}
+
+export function diagnoseProviderActionReadiness(
+  actions: ProviderExecutableAction[],
+  runtime: RuntimeEnvironment = {}
+): ProviderActionReadiness[] {
+  return actions.map((action, actionIndex) => {
+    const requirements = actionRequirements(action);
+    const configured: string[] = [];
+    const missing: string[] = [];
+
+    for (const requirement of requirements) {
+      if (isRequirementConfigured(requirement, runtime)) configured.push(requirement);
+      else missing.push(requirement);
+    }
+
+    return {
+      actionIndex,
+      provider: action.provider,
+      kind: action.kind,
+      status: missing.length === 0 ? "ready" : "needs_configuration",
+      configured,
+      missing,
+      notes: actionReadinessNotes(action, missing)
+    };
+  });
 }
 
 function buildActionsForRequest(request: ProviderExecutionRequest): ProviderExecutableAction[] {
@@ -99,6 +136,58 @@ function buildActionsForRequest(request: ProviderExecutionRequest): ProviderExec
     case "tiktok_mcp":
       return buildPlatformActions(request);
   }
+}
+
+function actionRequirements(action: ProviderExecutableAction): string[] {
+  if (action.kind === "agent_tool" || action.kind === "harness_command") return [];
+
+  if (action.kind === "shell_command") {
+    return [`command:${action.command}`];
+  }
+
+  if (action.kind === "mcp_tool") {
+    return [`mcpTool:${action.toolName}`];
+  }
+
+  return [
+    ...Object.values(action.headersEnv ?? {}).filter(isEnvRequirement),
+    ...Object.values(action.queryEnv ?? {}).filter(isEnvRequirement)
+  ];
+}
+
+function isRequirementConfigured(requirement: string, runtime: RuntimeEnvironment): boolean {
+  if (requirement.startsWith("command:")) {
+    return Boolean(runtime.availableCommands?.includes(requirement.slice("command:".length)));
+  }
+
+  if (requirement.startsWith("mcpTool:")) {
+    return Boolean(runtime.configuredMcpTools?.[requirement.slice("mcpTool:".length)]);
+  }
+
+  return Boolean(runtime.env?.[requirement]);
+}
+
+function isEnvRequirement(value: string): boolean {
+  return /^[A-Z][A-Z0-9_]+$/.test(value);
+}
+
+function actionReadinessNotes(action: ProviderExecutableAction, missing: string[]) {
+  if (missing.length === 0) {
+    if (action.kind === "agent_tool") return ["Ready through existing BrowserCode agent tool capability."];
+    if (action.kind === "harness_command") return ["Ready through local BrowserCode harness; no MCP required."];
+    return ["Ready with current runtime configuration."];
+  }
+
+  if (action.kind === "api_request") {
+    return ["API action needs environment configuration; keep provider fallbacks available."];
+  }
+  if (action.kind === "shell_command") {
+    return ["CLI action needs the command to be available to the agent runtime."];
+  }
+  if (action.kind === "mcp_tool") {
+    return ["MCP action needs the tool mapping to be configured in the agent runtime."];
+  }
+  return ["Action needs runtime configuration."];
 }
 
 function buildGitHubActions(request: ProviderExecutionRequest): ProviderExecutableAction[] {

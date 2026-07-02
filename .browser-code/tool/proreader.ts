@@ -2,6 +2,7 @@ import { tool } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
 import {
   buildProviderExecutionRequests,
   buildProviderExecutableActions,
+  diagnoseProviderActionReadiness,
   diagnoseProviderRuntime,
   dispatchInput,
   planProReader,
@@ -85,6 +86,14 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
       availableCommands: args.availableCommands,
       configuredMcpTools: args.configuredMcpTools,
     })
+    const actionReadiness = diagnoseProviderActionReadiness(executablePlan.actions, {
+      env: process.env,
+      availableCommands: args.availableCommands,
+      configuredMcpTools: args.configuredMcpTools,
+    })
+    const recommendedActionIndexes = actionReadiness
+      .filter((action) => action.status === "ready")
+      .map((action) => action.actionIndex)
 
     return JSON.stringify(
       {
@@ -93,6 +102,8 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
         plan,
         executionRequests,
         executablePlan,
+        actionReadiness,
+        recommendedActionIndexes,
         diagnostics,
         instructions: [
           "Execute executablePlan.actions with existing BrowserCode tools, configured MCP tools, provider APIs, or CLI commands.",
