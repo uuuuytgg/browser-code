@@ -14,6 +14,15 @@ export type {
   EnrichmentStepKind
 } from "./enrichment";
 export {
+  buildEnrichmentExecutionRequests,
+  prepareEnrichmentExecution
+} from "./enrichment-adapter";
+export type {
+  EnrichmentExecutionCapability,
+  EnrichmentExecutionRequest,
+  EnrichmentExecutionTool
+} from "./enrichment-adapter";
+export {
   assertNoDiscoveryEnrichment,
   assertProviderPlanIsSearchOnly,
   buildDiscoveryCandidatePool,
@@ -74,6 +83,20 @@ export type {
   ProviderMode
 } from "./provider-config";
 export {
+  assertProviderExecutionIsSideEffectSafe,
+  buildProviderExecutionRequests,
+  executeProviderRequest,
+  runProviderExecutionDryRun
+} from "./provider-executor";
+export type {
+  ProviderExecutionAdapter,
+  ProviderExecutionAdapters,
+  ProviderExecutionKind,
+  ProviderExecutionPolicy,
+  ProviderExecutionRequest,
+  ProviderExecutionResult
+} from "./provider-executor";
+export {
   assertVaultHandoffIsDryRun,
   buildVaultDryRunHandoff
 } from "./vault-adapter";
@@ -96,6 +119,18 @@ export type {
   ReviewedDiscoveryRun,
   ReviewDecision
 } from "./review";
+export {
+  applyReviewActions,
+  buildReviewedManifest,
+  createReviewSession,
+  listReviewItems
+} from "./review-service";
+export type {
+  ReviewActionResult,
+  ReviewItem,
+  ReviewSession,
+  ReviewSessionStatus
+} from "./review-service";
 export {
   planWikipediaSearchSteps
 } from "./wikipedia";
