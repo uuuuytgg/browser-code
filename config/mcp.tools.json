@@ -1,0 +1,60 @@
+{
+  "youtubeTranscript": {
+    "enabled": true,
+    "server": "youtube-transcript",
+    "tools": {
+      "getTranscript": "get_transcript",
+      "getTimedTranscript": "get_timed_transcript",
+      "getVideoInfo": "get_video_info",
+      "getAvailableLanguages": "get_available_languages"
+    }
+  },
+  "bilibiliSearch": {
+    "enabled": false,
+    "server": "bilibili-search",
+    "tools": {
+      "search": "general_search",
+      "videoInfo": "get_video_info",
+      "subtitle": "get_video_subtitle",
+      "danmaku": "get_video_danmaku",
+      "comments": "get_video_comments"
+    }
+  },
+  "bilibiliVideoInfo": {
+    "enabled": false,
+    "server": "bilibili-video-info",
+    "tools": {
+      "getSubtitle": "get_video_subtitle",
+      "getDanmaku": "get_video_danmaku",
+      "getComments": "get_video_comments",
+      "getVideoInfo": "get_video_info"
+    }
+  },
+  "douyinMcp": {
+    "enabled": false,
+    "server": "douyin",
+    "tools": {
+      "workSearch": "work_search",
+      "workDetail": "work_detail",
+      "comments": "get_comments"
+    }
+  },
+  "xiaohongshuMcp": {
+    "enabled": false,
+    "server": "xiaohongshu",
+    "tools": {
+      "noteSearch": "note_search",
+      "noteDetail": "note_detail",
+      "comments": "get_comments"
+    }
+  },
+  "tiktokMcp": {
+    "enabled": false,
+    "server": "tiktok",
+    "tools": {
+      "videoSearch": "video_search",
+      "videoDetail": "video_detail",
+      "comments": "get_comments"
+    }
+  }
+}

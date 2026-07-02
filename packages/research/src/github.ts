@@ -1,4 +1,5 @@
 import type { ProviderStep } from "./index";
+import type { ProviderConfigEntry } from "./provider-config";
 
 export type GitHubSearchKind =
   | "repository"
@@ -18,12 +19,18 @@ export type GitHubSearchQuery = {
   repository?: GitHubRepositoryRef;
 };
 
-export function planGitHubSearchSteps(query: string): ProviderStep[] {
+export function planGitHubSearchSteps(query: string, config?: ProviderConfigEntry): ProviderStep[] {
   return buildGitHubSearchQueries(query).map((searchQuery) => ({
     id: `github-${searchQuery.kind}-search`,
     provider: "github" as const,
     action: "search" as const,
-    input: searchQuery,
+    input: {
+      ...searchQuery,
+      providerMode: config?.mode ?? "api",
+      tokenEnv: config?.tokenEnv,
+      command: config?.command,
+      fallbackProviders: config?.fallbackProviders ?? ["websearch"]
+    },
     requiresApproval: false
   }));
 }

@@ -83,6 +83,14 @@ export type {
   ProviderMode
 } from "./provider-config";
 export {
+  diagnoseProviderRuntime
+} from "./runtime-config";
+export type {
+  ProviderRuntimeDiagnostic,
+  ProviderRuntimeStatus,
+  RuntimeEnvironment
+} from "./runtime-config";
+export {
   assertProviderExecutionIsSideEffectSafe,
   buildProviderExecutionRequests,
   executeProviderRequest,
@@ -332,7 +340,7 @@ export function planProviders(route: QueryRoute, query: string, config = resolve
     }
 
     if (provider === "github") {
-      steps.push(...filterDiscoverySteps(route, planGitHubSearchSteps(query)));
+      steps.push(...filterDiscoverySteps(route, planGitHubSearchSteps(query, providerConfig)));
       continue;
     }
 
@@ -356,7 +364,10 @@ export function planProviders(route: QueryRoute, query: string, config = resolve
           limit: 20,
           providerMode: providerConfig.mode,
           toolName: providerConfig.toolName ?? null,
+          command: providerConfig.command,
           apiKeyEnv: providerConfig.apiKeyEnv,
+          tokenEnv: providerConfig.tokenEnv,
+          userAgentEnv: providerConfig.userAgentEnv,
           fallbackProviders: providerConfig.fallbackProviders ?? []
         },
         requiresApproval: false
@@ -388,6 +399,11 @@ export function planProReader(
   request: ProReaderRequest,
   config = resolveProviderConfig()
 ): { route: QueryRoute; plan: ProviderPlan } {
+  const dispatch = dispatchInput(request.query);
+  if (dispatch.kind === "existing_url_pipeline") {
+    throw new Error(`EXPLICIT_URL_BYPASSES_PROREADER: ${dispatch.url}`);
+  }
+
   const route = routeQuery(request);
   return {
     route,

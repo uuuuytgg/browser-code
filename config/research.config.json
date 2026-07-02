@@ -1,0 +1,73 @@
+{
+  "router": {
+    "defaultMode": "answer",
+    "preferLocalWiki": true,
+    "externalDiscoveryRequiresReview": true
+  },
+  "limits": {
+    "answerMaxSources": 10,
+    "discoveryMaxCandidates": 80,
+    "discoveryMaxApproved": 12,
+    "perProviderLimit": 20,
+    "maxEnrichPerRun": 12,
+    "maxComments": 50,
+    "maxDanmaku": 100
+  },
+  "providers": {
+    "llmWikiLite": {
+      "enabled": true,
+      "mode": "adapter",
+      "command": "bun run harness/make_answer_context.ts \"{query}\""
+    },
+    "websearch": {
+      "enabled": true,
+      "mode": "builtin"
+    },
+    "webfetch": {
+      "enabled": true,
+      "mode": "builtin"
+    },
+    "github": {
+      "enabled": true,
+      "mode": "api",
+      "tokenEnv": "GITHUB_TOKEN",
+      "fallbackCommand": "gh",
+      "fallbackToGhCli": true
+    },
+    "wikipedia": {
+      "enabled": true,
+      "language": "zh",
+      "fallbackLanguage": "en",
+      "userAgentEnv": "WIKIMEDIA_USER_AGENT"
+    },
+    "officialDocs": {
+      "enabled": true,
+      "mode": "websearch_fallback"
+    },
+    "youtubeDataApi": {
+      "enabled": true,
+      "apiKeyEnv": "YOUTUBE_API_KEY",
+      "fallbackProviders": ["websearch"]
+    },
+    "ytDlp": {
+      "enabled": true,
+      "binary": "yt-dlp",
+      "noDownload": true,
+      "usageOnly": true
+    },
+    "mcp": {
+      "enabled": true,
+      "toolConfigPath": "config/mcp.tools.json"
+    }
+  },
+  "review": {
+    "enabled": true,
+    "serverPort": 3987,
+    "requireHumanApprovalBeforeEnrich": true,
+    "allowNoReviewFlag": false
+  },
+  "vaultAdapter": {
+    "mode": "dryRun",
+    "externalCommand": ""
+  }
+}

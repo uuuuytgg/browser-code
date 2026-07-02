@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAnswerContextDraft,
   buildGitHubSearchQueries,
+  diagnoseProviderRuntime,
   dispatchInput,
   getProviderAdapter,
   planOfficialDocsSearchSteps,
@@ -85,6 +86,12 @@ describe("routeQuery", () => {
 });
 
 describe("planProReader", () => {
+  it("rejects explicit URLs even when callers bypass dispatchInput", () => {
+    expect(() => planProReader({ query: "https://github.com/sst/opencode" })).toThrow(
+      "EXPLICIT_URL_BYPASSES_PROREADER"
+    );
+  });
+
   it("builds fuzzy GitHub search steps instead of URL/cache-first work", () => {
     const { plan } = planProReader({ query: "opencode session runtime 的 issue、PR、release 和源码实现" });
 
@@ -152,6 +159,40 @@ describe("answer system planning", () => {
 });
 
 describe("provider configuration", () => {
+  it("passes GitHub runtime requirements into fuzzy search steps", () => {
+    const { plan } = planProReader({ query: "opencode runtime issue" });
+    const githubStep = plan.steps.find((step) => step.provider === "github");
+
+    expect(githubStep?.input).toMatchObject({
+      providerMode: "api",
+      tokenEnv: "GITHUB_TOKEN",
+      command: "gh",
+      fallbackProviders: ["websearch"]
+    });
+  });
+
+  it("passes MCP or CLI runtime requirements into platform discovery steps", () => {
+    const config = resolveProviderConfig({
+      providers: {
+        douyin_mcp: {
+          mode: "mcp_or_cli",
+          command: "douyin-search",
+          toolName: "configured_douyin_search"
+        }
+      }
+    });
+    const { plan } = planProReader({ query: "鎵?YouTube Bilibili Douyin TikTok video" }, config);
+
+    expect(plan.steps.find((step) => step.id === "douyin_mcp-search")).toMatchObject({
+      provider: "douyin_mcp",
+      input: {
+        providerMode: "mcp_or_cli",
+        command: "douyin-search",
+        toolName: "configured_douyin_search"
+      }
+    });
+  });
+
   it("uses configured MCP tool names for platform discovery instead of hard-coding them", () => {
     const config = resolveProviderConfig({
       providers: {
@@ -194,6 +235,27 @@ describe("provider configuration", () => {
       },
       requiresApproval: false
     });
+  });
+});
+
+describe("provider runtime diagnostics", () => {
+  it("reports missing provider runtime requirements without exposing secret values", () => {
+    const diagnostics = diagnoseProviderRuntime(resolveProviderConfig(), {
+      env: {
+        GITHUB_TOKEN: "secret-value",
+        WIKIMEDIA_USER_AGENT: undefined,
+        YOUTUBE_API_KEY: undefined
+      },
+      availableCommands: []
+    });
+
+    expect(diagnostics.find((item) => item.provider === "github")).toMatchObject({
+      status: "needs_configuration",
+      configured: ["GITHUB_TOKEN"],
+      missing: ["command:gh"]
+    });
+    expect(JSON.stringify(diagnostics)).not.toContain("secret-value");
+    expect(diagnostics.find((item) => item.provider === "wikipedia")?.missing).toContain("WIKIMEDIA_USER_AGENT");
   });
 });
 
