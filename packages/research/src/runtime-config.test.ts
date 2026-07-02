@@ -22,6 +22,20 @@ describe("MCP tools runtime bridge", () => {
         tools: {
           workSearch: "work_search"
         }
+      },
+      xiaohongshuMcp: {
+        enabled: true,
+        server: "xiaohongshu",
+        tools: {
+          noteSearch: "note_search"
+        }
+      },
+      tiktokMcp: {
+        enabled: true,
+        server: "tiktok",
+        tools: {
+          videoSearch: "video_search"
+        }
       }
     });
     const config = resolveProviderConfig(bridge.providerConfigInput);
@@ -37,9 +51,19 @@ describe("MCP tools runtime bridge", () => {
       mode: "mcp",
       toolName: "work_search"
     });
+    expect(config.providers.xiaohongshu_mcp).toMatchObject({
+      mode: "mcp",
+      toolName: "note_search"
+    });
+    expect(config.providers.tiktok_mcp).toMatchObject({
+      mode: "mcp",
+      toolName: "video_search"
+    });
     expect(bridge.configuredMcpTools).toEqual({
       general_search: "bilibili-search.general_search",
-      work_search: "douyin.work_search"
+      work_search: "douyin.work_search",
+      note_search: "xiaohongshu.note_search",
+      video_search: "tiktok.video_search"
     });
     expect(diagnostics.find((item) => item.provider === "bilibili_mcp")).toMatchObject({
       status: "ready",

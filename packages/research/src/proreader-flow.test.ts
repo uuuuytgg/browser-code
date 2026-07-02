@@ -14,6 +14,16 @@ import {
 } from "./index";
 
 describe("ProReader execution-review-enrichment flow", () => {
+  it("keeps platform URLs on the existing URL pipeline", () => {
+    for (const url of [
+      "https://www.bilibili.com/video/BV1xx411c7mD",
+      "https://www.douyin.com/jingxuan/video/7340000000000000000",
+      "https://www.xiaohongshu.com/explore/65f000000000000000000000"
+    ]) {
+      expect(() => planProReader({ query: url })).toThrow("EXPLICIT_URL_BYPASSES_PROREADER");
+    }
+  });
+
   it("runs the first three integration layers without touching formal knowledge stores", async () => {
     const { route, plan } = planProReader({
       query: "collect AI agent sources",

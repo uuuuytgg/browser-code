@@ -58,6 +58,10 @@ describe("buildProviderExecutableActions", () => {
     expect(actions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ kind: "api_request", provider: "youtube_data_api" }),
+        expect.objectContaining({ kind: "api_request", provider: "bilibili_mcp" }),
+        expect.objectContaining({ kind: "api_request", provider: "douyin_mcp" }),
+        expect.objectContaining({ kind: "api_request", provider: "xiaohongshu_mcp", method: "POST" }),
+        expect.objectContaining({ kind: "api_request", provider: "tiktok_mcp" }),
         expect.objectContaining({ kind: "agent_tool", provider: "youtube_data_api", tool: "websearch" }),
         expect.objectContaining({ kind: "mcp_tool", provider: "bilibili_mcp", toolName: "bilibili_search" }),
         expect.objectContaining({ kind: "mcp_tool", provider: "douyin_mcp", toolName: "douyin_search" }),
@@ -122,6 +126,41 @@ describe("buildProviderExecutableActions", () => {
     expect(readiness.find((item) => item.provider === "douyin_mcp" && item.kind === "shell_command")).toMatchObject({
       status: "ready",
       configured: ["command:douyin-cli"]
+    });
+  });
+
+  it("diagnoses cookie-gated social platform APIs while leaving Bilibili public search runnable", () => {
+    const { plan } = planProReader({ query: "Bilibili 抖音 小红书 TikTok AI Agent 视频" });
+    const actions = buildProviderExecutableActions(buildProviderExecutionRequests(plan)).actions;
+    const readiness = diagnoseProviderActionReadiness(actions, {
+      env: {
+        BROWSER_CODE_PLATFORM_USER_AGENT: "BrowserCode/0.1"
+      }
+    });
+
+    expect(actions.find((action) => action.provider === "bilibili_mcp" && action.kind === "api_request")).toMatchObject({
+      kind: "api_request",
+      method: "GET",
+      url: expect.stringContaining("api.bilibili.com/x/web-interface/search/type")
+    });
+    expect(actions.find((action) => action.provider === "xiaohongshu_mcp" && action.kind === "api_request")).toMatchObject({
+      kind: "api_request",
+      method: "POST",
+      body: expect.objectContaining({
+        keyword: "Bilibili 抖音 小红书 TikTok AI Agent 视频"
+      })
+    });
+    expect(readiness.find((item) => item.provider === "bilibili_mcp" && item.kind === "api_request")).toMatchObject({
+      status: "ready",
+      missing: []
+    });
+    expect(readiness.find((item) => item.provider === "douyin_mcp" && item.kind === "api_request")).toMatchObject({
+      status: "needs_configuration",
+      missing: ["DOUYIN_COOKIE"]
+    });
+    expect(readiness.find((item) => item.provider === "xiaohongshu_mcp" && item.kind === "api_request")).toMatchObject({
+      status: "needs_configuration",
+      missing: ["XIAOHONGSHU_COOKIE"]
     });
   });
 

@@ -18,11 +18,12 @@ export type ProviderExecutableAction =
     }
   | {
       kind: "api_request";
-      method: "GET";
+      method: "GET" | "POST";
       url: string;
       headersEnv?: Record<string, string>;
       optionalHeadersEnv?: Record<string, string>;
       queryEnv?: Record<string, string>;
+      body?: Record<string, unknown>;
       sourceRequestId: string;
       provider: ProviderExecutionRequest["provider"];
     }
@@ -301,6 +302,20 @@ function buildPlatformActions(request: ProviderExecutionRequest): ProviderExecut
     });
   }
 
+  const endpoint = stringInput(request, "endpoint");
+  if (endpoint) {
+    actions.push({
+      kind: "api_request",
+      method: methodInput(request, "method") ?? "GET",
+      url: endpoint,
+      headersEnv: recordInput(request, "headersEnv"),
+      optionalHeadersEnv: recordInput(request, "optionalHeadersEnv"),
+      body: unknownRecordInput(request, "bodyTemplate"),
+      sourceRequestId: request.id,
+      provider: request.provider
+    });
+  }
+
   if (site) {
     actions.push(websearchAction(request, `${query} site:${site}`));
   }
@@ -354,4 +369,24 @@ function numberInput(request: ProviderExecutionRequest, key: string) {
 function arrayInput(request: ProviderExecutionRequest, key: string) {
   const value = request.input[key];
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function methodInput(request: ProviderExecutionRequest, key: string): "GET" | "POST" | undefined {
+  const value = request.input[key];
+  return value === "GET" || value === "POST" ? value : undefined;
+}
+
+function recordInput(request: ProviderExecutionRequest, key: string): Record<string, string> | undefined {
+  const value = request.input[key];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+}
+
+function unknownRecordInput(request: ProviderExecutionRequest, key: string): Record<string, unknown> | undefined {
+  const value = request.input[key];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return { ...value };
 }

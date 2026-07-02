@@ -1,5 +1,6 @@
 import { planGitHubSearchSteps } from "./github";
 import { planOfficialDocsSearchSteps } from "./official-docs";
+import { planPlatformSearchSteps } from "./platform-search";
 import { getProviderConfig, resolveProviderConfig } from "./provider-config";
 import { planWikipediaSearchSteps } from "./wikipedia";
 
@@ -71,6 +72,13 @@ export {
 export type {
   OfficialDocsSearchQuery
 } from "./official-docs";
+export {
+  planPlatformSearchSteps
+} from "./platform-search";
+export type {
+  PlatformSearchProvider,
+  PlatformSearchQuery
+} from "./platform-search";
 export {
   defaultProviderConfig,
   getProviderConfig,
@@ -366,7 +374,7 @@ export function planProviders(route: QueryRoute, query: string, config = resolve
       continue;
     }
 
-    if (isPlatformDiscoveryProvider(provider)) {
+    if (provider === "youtube_data_api") {
       steps.push({
         id: `${provider}-search`,
         provider,
@@ -375,15 +383,16 @@ export function planProviders(route: QueryRoute, query: string, config = resolve
           query,
           limit: 20,
           providerMode: providerConfig.mode,
-          toolName: providerConfig.toolName ?? null,
-          command: providerConfig.command,
           apiKeyEnv: providerConfig.apiKeyEnv,
-          tokenEnv: providerConfig.tokenEnv,
-          userAgentEnv: providerConfig.userAgentEnv,
           fallbackProviders: providerConfig.fallbackProviders ?? []
         },
         requiresApproval: false
       });
+      continue;
+    }
+
+    if (isPlatformDiscoveryProvider(provider)) {
+      steps.push(...planPlatformSearchSteps(provider, query, providerConfig));
       continue;
     }
 
@@ -509,8 +518,7 @@ function isVaultIngestRequest(query: string) {
 }
 
 function isPlatformDiscoveryProvider(provider: ProviderId) {
-  return provider === "youtube_data_api"
-    || provider === "bilibili_mcp"
+  return provider === "bilibili_mcp"
     || provider === "douyin_mcp"
     || provider === "xiaohongshu_mcp"
     || provider === "tiktok_mcp";
