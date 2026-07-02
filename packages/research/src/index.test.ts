@@ -292,7 +292,7 @@ describe("provider runtime diagnostics", () => {
     });
 
     expect(diagnostics.find((item) => item.provider === "github")).toMatchObject({
-      status: "needs_configuration",
+      status: "ready",
       configured: ["GITHUB_TOKEN"],
       missing: ["command:gh"]
     });

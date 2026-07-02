@@ -107,13 +107,19 @@ export function diagnoseProviderRuntime(
     return {
       provider,
       mode: entry.mode,
-      status: missing.length === 0 ? "ready" : "needs_configuration",
+      status: providerRuntimeStatus(provider, missing),
       requirements,
       configured,
       missing,
       notes: buildProviderNotes(provider)
     };
   });
+}
+
+function providerRuntimeStatus(provider: ProviderId, missing: string[]): ProviderRuntimeStatus {
+  if (missing.length === 0) return "ready";
+  if (provider === "github") return "ready";
+  return "needs_configuration";
 }
 
 function buildProviderNotes(provider: ProviderId) {
@@ -124,7 +130,10 @@ function buildProviderNotes(provider: ProviderId) {
     return ["Use existing BrowserCode agent tool capability; ProReader should only plan and route."];
   }
   if (provider === "github") {
-    return ["GitHub provider is fuzzy search first; direct GitHub URL capture stays in the existing URL pipeline."];
+    return [
+      "GitHub public search API can run without a token; GITHUB_TOKEN and gh CLI improve rate limits and coverage.",
+      "GitHub provider is fuzzy search first; direct GitHub URL capture stays in the existing URL pipeline."
+    ];
   }
   if (provider.endsWith("_mcp")) {
     return ["MCP tool names must come from config; do not hard-code third-party MCP tool names."];

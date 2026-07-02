@@ -21,6 +21,7 @@ export type ProviderExecutableAction =
       method: "GET";
       url: string;
       headersEnv?: Record<string, string>;
+      optionalHeadersEnv?: Record<string, string>;
       queryEnv?: Record<string, string>;
       sourceRequestId: string;
       provider: ProviderExecutionRequest["provider"];
@@ -204,8 +205,10 @@ function buildGitHubActions(request: ProviderExecutionRequest): ProviderExecutab
       method: "GET",
       url: `https://api.github.com${endpoint}`,
       headersEnv: {
-        Authorization: tokenEnv,
         Accept: "application/vnd.github+json"
+      },
+      optionalHeadersEnv: {
+        Authorization: tokenEnv
       },
       sourceRequestId: request.id,
       provider: request.provider

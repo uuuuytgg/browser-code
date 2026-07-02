@@ -31,7 +31,7 @@ When the intent is ambiguous, ask one short clarifying question with the `questi
 - For `harness_command`, call `bash` with the provided command and args. This is the local LLM Wiki Lite path and does not require MCP.
 - For `mcp_tool`, call the configured MCP tool only when it is available to the agent runtime.
 - For `shell_command`, call `bash` only when `actionReadiness` marks that action ready.
-- For `api_request`, use the provider API only when required env vars are configured; otherwise use the ready websearch or site-search fallback actions.
+- For `api_request`, use the provider API when `actionReadiness` marks that action ready; GitHub public search may be ready without a token, while providers such as YouTube still require their API key. Otherwise use the ready websearch or site-search fallback actions.
 - Treat ProReader as a harness and routing layer, not as a script that replaces agent judgment. Execute ready actions, skip actions marked `needs_configuration`, and use fallbacks before telling the user a provider is unavailable.
 - Never use ProReader for explicit URLs; explicit URLs stay on the existing URL/video/resource/vault pipelines.
 

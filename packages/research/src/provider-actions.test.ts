@@ -104,8 +104,8 @@ describe("buildProviderExecutableActions", () => {
       missing: []
     });
     expect(readiness.find((item) => item.provider === "github" && item.kind === "api_request")).toMatchObject({
-      status: "needs_configuration",
-      missing: ["GITHUB_TOKEN"]
+      status: "ready",
+      missing: []
     });
     expect(readiness.find((item) => item.provider === "github" && item.kind === "agent_tool")).toMatchObject({
       status: "ready",
@@ -122,6 +122,28 @@ describe("buildProviderExecutableActions", () => {
     expect(readiness.find((item) => item.provider === "douyin_mcp" && item.kind === "shell_command")).toMatchObject({
       status: "ready",
       configured: ["command:douyin-cli"]
+    });
+  });
+
+  it("keeps GitHub public API search ready without a token", () => {
+    const { plan } = planProReader({ query: "GitHub opencode issue" });
+    const actions = buildProviderExecutableActions(buildProviderExecutionRequests(plan)).actions;
+    const githubApi = actions.find((action) => action.provider === "github" && action.kind === "api_request");
+    const readiness = diagnoseProviderActionReadiness(actions, { env: {}, availableCommands: [] });
+
+    expect(githubApi).toMatchObject({
+      kind: "api_request",
+      provider: "github",
+      headersEnv: {
+        Accept: "application/vnd.github+json"
+      },
+      optionalHeadersEnv: {
+        Authorization: "GITHUB_TOKEN"
+      }
+    });
+    expect(readiness.find((item) => item.provider === "github" && item.kind === "api_request")).toMatchObject({
+      status: "ready",
+      missing: []
     });
   });
 });
