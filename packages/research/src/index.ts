@@ -74,6 +74,16 @@ export type {
   ProviderMode
 } from "./provider-config";
 export {
+  assertVaultHandoffIsDryRun,
+  buildVaultDryRunHandoff
+} from "./vault-adapter";
+export type {
+  VaultAdapterMode,
+  VaultDryRunHandoff,
+  VaultHandoffArtifact,
+  VaultIngestManifest
+} from "./vault-adapter";
+export {
   applyReviewDecisions,
   assertNoUnreviewedCandidatesInManifest,
   buildApprovedManifest
