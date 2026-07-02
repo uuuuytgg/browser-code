@@ -29,6 +29,18 @@
       "cwd": ".",
       "enabled": false,
     },
+    "xhs-local": {
+      "type": "local",
+      "command": ["tools/mcp/.venv/Scripts/uvx.exe", "--from", "jobson-xhs-mcp", "xhs-mcp"],
+      "cwd": ".",
+      "enabled": false,
+    },
+    "douyin-cli": {
+      "type": "local",
+      "command": ["tools/mcp/bin/douyin.exe", "mcp"],
+      "cwd": ".",
+      "enabled": false,
+    },
     "socialdatax-douyin": {
       "type": "local",
       "command": [

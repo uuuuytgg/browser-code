@@ -29,6 +29,7 @@ export type McpToolsConfig = Record<string, {
   requiresEnv?: string[];
   readonlyTools?: string[];
   disabledWriteTools?: string[];
+  notes?: string[];
   tools?: Record<string, string>;
 }>;
 

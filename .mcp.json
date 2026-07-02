@@ -7,6 +7,19 @@
     "bilibili-readonly": {
       "command": "tools/mcp/.venv/Scripts/python.exe",
       "args": ["tools/mcp/bilibili-readonly-server.py"]
+    },
+    "douyin-cli": {
+      "command": "tools/mcp/bin/douyin.exe",
+      "args": ["mcp"],
+      "disabled": true
+    },
+    "xhs-local": {
+      "command": "tools/mcp/.venv/Scripts/uvx.exe",
+      "args": ["--from", "jobson-xhs-mcp", "xhs-mcp"],
+      "env": {
+        "XHS_COOKIE": "${XHS_COOKIE}"
+      },
+      "disabled": true
     }
   }
 }

@@ -63,9 +63,49 @@
   },
   "douyinMcp": {
     "enabled": false,
+    "server": "douyin-cli",
+    "source": "github:tamnd/douyin-cli",
+    "purpose": "discovery_and_approved_enrichment",
+    "notes": [
+      "Preferred over SocialDataX by default. Uses public Douyin web surfaces; hot search is most reliable.",
+      "search/video/comments may require China/residential session or warm browser session because of Douyin anti-bot."
+    ],
+    "tools": {
+      "workSearch": "search",
+      "workDetail": "video",
+      "comments": "comments",
+      "creatorProfile": "user",
+      "creatorWorks": "posts",
+      "hotSearch": "hot"
+    }
+  },
+  "xiaohongshuMcp": {
+    "enabled": false,
+    "server": "xhs-local",
+    "source": "github:jobsonlook/xhs-mcp",
+    "purpose": "discovery_and_approved_enrichment",
+    "requiresEnv": ["XHS_COOKIE"],
+    "readonlyTools": [
+      "check_cookie",
+      "home_feed",
+      "search_notes",
+      "get_note_content",
+      "get_note_comments"
+    ],
+    "disabledWriteTools": ["post_comment"],
+    "tools": {
+      "noteSearch": "search_notes",
+      "homeFeed": "home_feed",
+      "noteDetailByUrl": "get_note_content",
+      "commentsByUrl": "get_note_comments",
+      "checkCookie": "check_cookie"
+    }
+  },
+  "socialdataxDouyinMcp": {
+    "enabled": false,
     "server": "socialdatax-douyin",
     "source": "smithery:ychen20141229/douyin-insights",
-    "purpose": "discovery_and_approved_enrichment",
+    "purpose": "expensive_fallback_only_enable_on_explicit_request",
     "requiresEnv": ["SOCIALDATAX_API_KEY"],
     "tools": {
       "workSearch": "work_search",
@@ -77,11 +117,11 @@
       "hotSearch": "hot_search"
     }
   },
-  "xiaohongshuMcp": {
+  "socialdataxXhsMcp": {
     "enabled": false,
     "server": "socialdatax-xhs",
     "source": "github:devinchen2014/xiaohongshu-xhs-rednote-mcp",
-    "purpose": "discovery_and_approved_enrichment",
+    "purpose": "expensive_fallback_only_enable_on_explicit_request",
     "transport": "streamable-http",
     "url": "https://mcp.52choujiang.com/xhs/mcp",
     "requiresEnv": ["SOCIALDATAX_API_KEY"],

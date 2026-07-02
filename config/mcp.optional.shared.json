@@ -1,5 +1,16 @@
 {
   "mcpServers": {
+    "douyin-cli": {
+      "command": "tools/mcp/bin/douyin.exe",
+      "args": ["mcp"]
+    },
+    "xhs-local": {
+      "command": "tools/mcp/.venv/Scripts/uvx.exe",
+      "args": ["--from", "jobson-xhs-mcp", "xhs-mcp"],
+      "env": {
+        "XHS_COOKIE": "${XHS_COOKIE}"
+      }
+    },
     "bilibili-video-info": {
       "command": "tools/mcp/.venv/Scripts/bilibili-video-info-mcp.exe",
       "env": {
@@ -7,6 +18,7 @@
       }
     },
     "socialdatax-xhs": {
+      "purpose": "expensive_fallback_only_enable_on_explicit_request",
       "command": "cmd",
       "args": [
         "/c",
@@ -14,6 +26,7 @@
       ]
     },
     "socialdatax-douyin": {
+      "purpose": "expensive_fallback_only_enable_on_explicit_request",
       "command": "cmd",
       "args": [
         "/c",
