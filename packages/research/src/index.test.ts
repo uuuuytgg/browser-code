@@ -85,6 +85,48 @@ describe("routeQuery", () => {
   });
 });
 
+describe("routeQuery Chinese fuzzy intent coverage", () => {
+  it("routes Chinese local knowledge questions to LLM Wiki Lite", () => {
+    const route = routeQuery({ query: "我之前在本地知识库里整理过 BrowserCode 的 LLM Wiki Lite 吗？" });
+
+    expect(route.intent).toBe("local_wiki_question");
+    expect(route.providers).toEqual(["llm_wiki_lite"]);
+  });
+
+  it("routes Chinese definition questions through Wikipedia and reference providers", () => {
+    const route = routeQuery({ query: "MCP 是什么，它的历史背景和核心概念是什么？" });
+
+    expect(route.intent).toBe("knowledge_definition_question");
+    expect(route.providers).toEqual(["llm_wiki_lite", "wikipedia", "official_docs", "websearch"]);
+  });
+
+  it("routes Chinese video and social platform fuzzy search across all configured platform providers", () => {
+    const route = routeQuery({
+      query: "帮我在 B站、YouTube、抖音、小红书、TikTok 上找 AI Agent 的深度视频内容"
+    });
+
+    expect(route.intent).toBe("video_platform_discovery");
+    expect(route.providers).toEqual([
+      "websearch",
+      "site_search",
+      "youtube_data_api",
+      "bilibili_mcp",
+      "douyin_mcp",
+      "xiaohongshu_mcp",
+      "tiktok_mcp"
+    ]);
+  });
+
+  it("routes Chinese ingest preparation to discovery with review before vault writes", () => {
+    const route = routeQuery({ query: "帮我搜集一批外部资料，准备入库到知识库" });
+
+    expect(route.intent).toBe("vault_ingest_request");
+    expect(route.mode).toBe("discovery_ingest");
+    expect(route.requiresHumanReview).toBe(true);
+    expect(route.requiresVaultWrite).toBe(true);
+  });
+});
+
 describe("planProReader", () => {
   it("rejects explicit URLs even when callers bypass dispatchInput", () => {
     expect(() => planProReader({ query: "https://github.com/sst/opencode" })).toThrow(

@@ -254,7 +254,7 @@ export function dispatchInput(input: string): InputDispatch {
 export function routeQuery(request: ProReaderRequest): QueryRoute {
   const query = request.query.trim();
 
-  if (isVaultIngestRequest(query) || request.requestedMode === "discovery_ingest") {
+  if (matchesVaultIngestRequest(query) || request.requestedMode === "discovery_ingest") {
     return {
       intent: "vault_ingest_request",
       mode: "discovery_ingest",
@@ -265,7 +265,7 @@ export function routeQuery(request: ProReaderRequest): QueryRoute {
     };
   }
 
-  if (isVideoDiscoveryQuery(query)) {
+  if (matchesVideoDiscoveryQuery(query)) {
     return {
       intent: "video_platform_discovery",
       mode: "discovery_ingest",
@@ -276,7 +276,7 @@ export function routeQuery(request: ProReaderRequest): QueryRoute {
     };
   }
 
-  if (isLocalWikiQuery(query)) {
+  if (matchesLocalWikiQuery(query)) {
     return {
       intent: "local_wiki_question",
       mode: "answer",
@@ -287,7 +287,7 @@ export function routeQuery(request: ProReaderRequest): QueryRoute {
     };
   }
 
-  if (isKnowledgeDefinitionQuery(query)) {
+  if (matchesKnowledgeDefinitionQuery(query)) {
     return {
       intent: "knowledge_definition_question",
       mode: "answer",
@@ -298,7 +298,7 @@ export function routeQuery(request: ProReaderRequest): QueryRoute {
     };
   }
 
-  if (isCodeToolingQuery(query)) {
+  if (matchesCodeToolingQuery(query)) {
     return {
       intent: "code_tooling_question",
       mode: "answer",
@@ -461,6 +461,26 @@ export function planResearch(request: ResearchRequest): { route: QueryRoute; pla
 function extractExplicitUrl(input: string) {
   const match = input.match(/https?:\/\/[^\s<>"']+/i);
   return match?.[0];
+}
+
+function matchesLocalWikiQuery(query: string) {
+  return /我之前|本地知识|已有知识|browser-code|browsercode|vault|wiki lite|llm wiki lite|知识库/i.test(query);
+}
+
+function matchesCodeToolingQuery(query: string) {
+  return /github|repo|repository|issue|pull request|\bpr\b|cli|mcp|api|sdk|报错|部署|配置|typescript|python|bun|opencode|claude code|codex/i.test(query);
+}
+
+function matchesKnowledgeDefinitionQuery(query: string) {
+  return /是什么|定义|历史|原理|背景|概念|人物|组织|技术路线|wikipedia|维基/i.test(query);
+}
+
+function matchesVideoDiscoveryQuery(query: string) {
+  return /youtube|bilibili|b站|哔哩|抖音|小红书|tiktok|视频|教程|平台上有什么|大家怎么看|内容生态|热门内容|深度内容/i.test(query);
+}
+
+function matchesVaultIngestRequest(query: string) {
+  return /帮我搜集|整理一批资料|加入知识库|准备入库|资料包|evidence pack|外部资料|候选池/i.test(query);
 }
 
 function isLocalWikiQuery(query: string) {
