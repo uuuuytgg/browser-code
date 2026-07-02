@@ -39,7 +39,13 @@
       "type": "local",
       "command": ["tools/mcp/bin/douyin.exe", "mcp"],
       "cwd": ".",
-      "enabled": false,
+      "environment": {
+        "HTTP_PROXY": "",
+        "HTTPS_PROXY": "",
+        "ALL_PROXY": "",
+        "NO_PROXY": "*",
+      },
+      "enabled": true,
     },
     "socialdatax-douyin": {
       "type": "local",

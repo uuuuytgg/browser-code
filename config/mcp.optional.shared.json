@@ -2,7 +2,13 @@
   "mcpServers": {
     "douyin-cli": {
       "command": "tools/mcp/bin/douyin.exe",
-      "args": ["mcp"]
+      "args": ["mcp"],
+      "env": {
+        "HTTP_PROXY": "",
+        "HTTPS_PROXY": "",
+        "ALL_PROXY": "",
+        "NO_PROXY": "*"
+      }
     },
     "xhs-local": {
       "command": "tools/mcp/.venv/Scripts/uvx.exe",

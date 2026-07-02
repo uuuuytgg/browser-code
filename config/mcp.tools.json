@@ -62,7 +62,7 @@
     }
   },
   "douyinMcp": {
-    "enabled": false,
+    "enabled": true,
     "server": "douyin-cli",
     "source": "github:tamnd/douyin-cli",
     "purpose": "discovery_and_approved_enrichment",
