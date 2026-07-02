@@ -1,5 +1,8 @@
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { tool } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
 import {
+  buildMcpToolsRuntimeBridge,
   buildProviderExecutionRequests,
   buildProviderExecutableActions,
   diagnoseProviderActionReadiness,
@@ -7,7 +10,9 @@ import {
   dispatchInput,
   planProReader,
   resolveProviderConfig,
+  type McpToolsConfig,
   type ProviderId,
+  type ProReaderProviderConfigInput,
 } from "../../packages/research/src/index"
 
 const providerIds = [
@@ -71,7 +76,12 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
       )
     }
 
-    const config = buildConfig(args.enabledProviders as ProviderId[] | undefined)
+    const mcpRuntimeBridge = loadMcpToolsRuntimeBridge()
+    const config = buildConfig(args.enabledProviders as ProviderId[] | undefined, mcpRuntimeBridge.providerConfigInput)
+    const configuredMcpTools = {
+      ...mcpRuntimeBridge.configuredMcpTools,
+      ...args.configuredMcpTools,
+    }
     const { route, plan } = planProReader(
       {
         query: args.query,
@@ -84,12 +94,12 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
     const diagnostics = diagnoseProviderRuntime(config, {
       env: process.env,
       availableCommands: args.availableCommands,
-      configuredMcpTools: args.configuredMcpTools,
+      configuredMcpTools,
     })
     const actionReadiness = diagnoseProviderActionReadiness(executablePlan.actions, {
       env: process.env,
       availableCommands: args.availableCommands,
-      configuredMcpTools: args.configuredMcpTools,
+      configuredMcpTools,
     })
     const recommendedActionIndexes = actionReadiness
       .filter((action) => action.status === "ready")
@@ -104,6 +114,10 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
         executablePlan,
         actionReadiness,
         recommendedActionIndexes,
+        runtimeBridge: {
+          configuredMcpTools,
+          mcpConfigPath: "config/mcp.tools.json",
+        },
         diagnostics,
         instructions: [
           "Execute executablePlan.actions with existing BrowserCode tools, configured MCP tools, provider APIs, or CLI commands.",
@@ -119,18 +133,27 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
   },
 })
 
-function buildConfig(enabledProviders?: ProviderId[]) {
-  if (!enabledProviders) return resolveProviderConfig()
+function buildConfig(enabledProviders?: ProviderId[], bridgeConfig: ProReaderProviderConfigInput = {}) {
+  if (!enabledProviders) return resolveProviderConfig(bridgeConfig)
   const enabled = new Set(enabledProviders)
-  const base = resolveProviderConfig()
+  const base = resolveProviderConfig(bridgeConfig)
   return resolveProviderConfig({
     providers: Object.fromEntries(
       (Object.keys(base.providers) as ProviderId[]).map((provider) => [
         provider,
         {
+          ...bridgeConfig.providers?.[provider],
           enabled: enabled.has(provider),
         },
       ]),
     ),
   })
+}
+
+function loadMcpToolsRuntimeBridge() {
+  const configPath = join(process.cwd(), "config", "mcp.tools.json")
+  if (!existsSync(configPath)) return buildMcpToolsRuntimeBridge()
+
+  const config = JSON.parse(readFileSync(configPath, "utf8")) as McpToolsConfig
+  return buildMcpToolsRuntimeBridge(config)
 }

@@ -83,9 +83,12 @@ export type {
   ProviderMode
 } from "./provider-config";
 export {
+  buildMcpToolsRuntimeBridge,
   diagnoseProviderRuntime
 } from "./runtime-config";
 export type {
+  McpToolsConfig,
+  McpToolsRuntimeBridge,
   ProviderRuntimeDiagnostic,
   ProviderRuntimeStatus,
   RuntimeEnvironment

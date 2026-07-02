@@ -1,4 +1,4 @@
-import { defaultProviderConfig, type ProReaderProviderConfig } from "./provider-config";
+import { defaultProviderConfig, type ProReaderProviderConfig, type ProReaderProviderConfigInput } from "./provider-config";
 import type { ProviderId } from "./index";
 
 export type ProviderRuntimeStatus = "ready" | "needs_configuration" | "disabled";
@@ -18,6 +18,46 @@ export type RuntimeEnvironment = {
   availableCommands?: string[];
   configuredMcpTools?: Record<string, string | undefined>;
 };
+
+export type McpToolsConfig = Record<string, {
+  enabled?: boolean;
+  server?: string;
+  tools?: Record<string, string>;
+}>;
+
+export type McpToolsRuntimeBridge = {
+  providerConfigInput: ProReaderProviderConfigInput;
+  configuredMcpTools: Record<string, string>;
+};
+
+const MCP_PROVIDER_BRIDGE: Record<string, { provider: ProviderId; toolKey: string }> = {
+  bilibiliSearch: { provider: "bilibili_mcp", toolKey: "search" },
+  douyinMcp: { provider: "douyin_mcp", toolKey: "workSearch" },
+  xiaohongshuMcp: { provider: "xiaohongshu_mcp", toolKey: "noteSearch" },
+  tiktokMcp: { provider: "tiktok_mcp", toolKey: "videoSearch" }
+};
+
+export function buildMcpToolsRuntimeBridge(config: McpToolsConfig = {}): McpToolsRuntimeBridge {
+  const providerConfigInput: ProReaderProviderConfigInput = { providers: {} };
+  const configuredMcpTools: Record<string, string> = {};
+
+  for (const [configKey, bridge] of Object.entries(MCP_PROVIDER_BRIDGE)) {
+    const entry = config[configKey];
+    const toolName = entry?.tools?.[bridge.toolKey];
+    if (!entry?.enabled || !entry.server || !toolName) continue;
+
+    providerConfigInput.providers![bridge.provider] = {
+      mode: "mcp",
+      toolName
+    };
+    configuredMcpTools[toolName] = `${entry.server}.${toolName}`;
+  }
+
+  return {
+    providerConfigInput,
+    configuredMcpTools
+  };
+}
 
 export function diagnoseProviderRuntime(
   config: ProReaderProviderConfig = defaultProviderConfig,
