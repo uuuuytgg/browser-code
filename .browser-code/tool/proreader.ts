@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs"
-import { join } from "node:path"
+import { delimiter, extname, join } from "node:path"
 import { tool } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
 import {
   buildMcpToolsRuntimeBridge,
@@ -91,14 +91,15 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
     )
     const executionRequests = buildProviderExecutionRequests(plan)
     const executablePlan = buildProviderExecutableActions(executionRequests)
+    const availableCommands = [...new Set([...(detectAvailableCommands()), ...(args.availableCommands ?? [])])]
     const diagnostics = diagnoseProviderRuntime(config, {
       env: process.env,
-      availableCommands: args.availableCommands,
+      availableCommands,
       configuredMcpTools,
     })
     const actionReadiness = diagnoseProviderActionReadiness(executablePlan.actions, {
       env: process.env,
-      availableCommands: args.availableCommands,
+      availableCommands,
       configuredMcpTools,
     })
     const recommendedActionIndexes = actionReadiness
@@ -115,6 +116,7 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
         actionReadiness,
         recommendedActionIndexes,
         runtimeBridge: {
+          availableCommands,
           configuredMcpTools,
           mcpConfigPath: "config/mcp.tools.json",
         },
@@ -156,4 +158,24 @@ function loadMcpToolsRuntimeBridge() {
 
   const config = JSON.parse(readFileSync(configPath, "utf8")) as McpToolsConfig
   return buildMcpToolsRuntimeBridge(config)
+}
+
+function detectAvailableCommands() {
+  return ["gh", "yt-dlp", "ffmpeg", "bun"].filter(commandExists)
+}
+
+function commandExists(command: string) {
+  const pathValue = process.env.PATH ?? ""
+  const extensions = process.platform === "win32"
+    ? [...new Set([...(process.env.PATHEXT ?? "").split(";"), ".EXE", ".CMD", ".BAT", ".COM", ".PS1"])]
+    : [""]
+  const names = extname(command)
+    ? [command]
+    : extensions.map((extension) => `${command}${extension.toLowerCase()}`)
+      .concat(extensions.map((extension) => `${command}${extension.toUpperCase()}`))
+
+  return pathValue
+    .split(delimiter)
+    .filter(Boolean)
+    .some((dir) => names.some((name) => existsSync(join(dir, name))))
 }
