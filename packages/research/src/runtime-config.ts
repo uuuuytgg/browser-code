@@ -17,6 +17,7 @@ export type ProviderRuntimeDiagnostic = {
 export type RuntimeEnvironment = {
   env?: Record<string, string | undefined>;
   availableCommands?: string[];
+  availableAgentTools?: string[];
   configuredMcpTools?: Record<string, string | undefined>;
 };
 

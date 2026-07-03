@@ -90,7 +90,8 @@ export function diagnoseProviderActionReadiness(
     const missing: string[] = [];
 
     for (const requirement of requirements) {
-      if (isRequirementConfigured(requirement, runtime)) configured.push(requirement);
+      const configuredRequirement = resolveConfiguredRequirement(requirement, runtime);
+      if (configuredRequirement) configured.push(configuredRequirement);
       else missing.push(requirement);
     }
 
@@ -142,7 +143,10 @@ function buildActionsForRequest(request: ProviderExecutionRequest): ProviderExec
 }
 
 function actionRequirements(action: ProviderExecutableAction): string[] {
-  if (action.kind === "agent_tool" || action.kind === "harness_command") return [];
+  if (action.kind === "agent_tool") {
+    return agentToolRequirements(action);
+  }
+  if (action.kind === "harness_command") return [];
 
   if (action.kind === "shell_command") {
     return [`command:${action.command}`];
@@ -158,16 +162,33 @@ function actionRequirements(action: ProviderExecutableAction): string[] {
   ];
 }
 
-function isRequirementConfigured(requirement: string, runtime: RuntimeEnvironment): boolean {
+function agentToolRequirements(action: Extract<ProviderExecutableAction, { kind: "agent_tool" }>): string[] {
+  if (action.tool === "websearch") {
+    return [`agentTool:any:${(action.toolCandidates ?? [action.tool]).join("|")}`];
+  }
+  return [`agentTool:${action.tool}`];
+}
+
+function resolveConfiguredRequirement(requirement: string, runtime: RuntimeEnvironment): string | undefined {
   if (requirement.startsWith("command:")) {
-    return Boolean(runtime.availableCommands?.includes(requirement.slice("command:".length)));
+    return runtime.availableCommands?.includes(requirement.slice("command:".length)) ? requirement : undefined;
   }
 
   if (requirement.startsWith("mcpTool:")) {
-    return Boolean(runtime.configuredMcpTools?.[requirement.slice("mcpTool:".length)]);
+    return runtime.configuredMcpTools?.[requirement.slice("mcpTool:".length)] ? requirement : undefined;
   }
 
-  return Boolean(runtime.env?.[requirement]);
+  if (requirement.startsWith("agentTool:any:")) {
+    const tools = requirement.slice("agentTool:any:".length).split("|").filter(Boolean);
+    const matchedTool = tools.find((tool) => runtime.availableAgentTools?.includes(tool));
+    return matchedTool ? `agentTool:${matchedTool}` : undefined;
+  }
+
+  if (requirement.startsWith("agentTool:")) {
+    return runtime.availableAgentTools?.includes(requirement.slice("agentTool:".length)) ? requirement : undefined;
+  }
+
+  return runtime.env?.[requirement] ? requirement : undefined;
 }
 
 function isEnvRequirement(value: string): boolean {
@@ -195,6 +216,12 @@ function actionReadinessNotes(action: ProviderExecutableAction, missing: string[
   }
   if (action.kind === "mcp_tool") {
     return ["MCP action needs the tool mapping to be configured in the agent runtime."];
+  }
+  if (action.kind === "agent_tool" && missing.some((item) => item.startsWith("agentTool:any:"))) {
+    return ["Search discovery needs at least one available BrowserCode search tool from toolCandidates."];
+  }
+  if (action.kind === "agent_tool") {
+    return ["Agent tool action needs the named BrowserCode tool to be available to the runtime."];
   }
   return ["Action needs runtime configuration."];
 }

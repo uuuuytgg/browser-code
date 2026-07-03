@@ -104,6 +104,7 @@ describe("buildProviderExecutableActions", () => {
     ];
     const readiness = diagnoseProviderActionReadiness(actions, {
       env: {},
+      availableAgentTools: ["multi_search_engine", "webfetch"],
       availableCommands: ["douyin-cli"],
       configuredMcpTools: {
         douyin_search: "douyin.work_search"
@@ -121,6 +122,7 @@ describe("buildProviderExecutableActions", () => {
     expect(readiness.find((item) => item.provider === "github" && item.kind === "agent_tool")).toMatchObject({
       status: "ready",
       missing: [],
+      configured: ["agentTool:multi_search_engine"],
       notes: expect.arrayContaining([
         "If the exact websearch tool is not exposed, use the first available equivalent from toolCandidates."
       ])
@@ -193,6 +195,21 @@ describe("buildProviderExecutableActions", () => {
     expect(readiness.find((item) => item.provider === "github" && item.kind === "api_request")).toMatchObject({
       status: "ready",
       missing: []
+    });
+  });
+
+  it("does not mark websearch agent actions ready when no search tool candidate is available", () => {
+    const { plan } = planProReader({ query: "飞波舞 相关内容" });
+    const actions = buildProviderExecutableActions(buildProviderExecutionRequests(plan)).actions;
+    const readiness = diagnoseProviderActionReadiness(actions, {
+      availableAgentTools: ["webfetch"]
+    });
+
+    expect(readiness.find((item) => item.kind === "agent_tool" && item.provider === "websearch")).toMatchObject({
+      status: "needs_configuration",
+      configured: [],
+      missing: ["agentTool:any:websearch|multi_search_engine|multi-search-engine|search"],
+      notes: ["Search discovery needs at least one available BrowserCode search tool from toolCandidates."]
     });
   });
 });
