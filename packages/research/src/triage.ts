@@ -1,16 +1,4 @@
-export type ProReaderTriageKind =
-  | "existing_url_pipeline"
-  | "proreader"
-  | "ambiguous"
-  | "normal_agent";
-
-export type ProReaderAmbiguityOption = {
-  id: string;
-  label: string;
-  description: string;
-  query: string;
-  providerBias: ProviderId[];
-};
+export type ProReaderTriageKind = "existing_url_pipeline" | "proreader" | "normal_agent";
 
 export type ProviderId =
   | "llm_wiki_lite"
@@ -44,6 +32,14 @@ export type QueryRoute = {
   reason: string;
 };
 
+export type ProReaderAmbiguityOption = {
+  id: string;
+  label: string;
+  description: string;
+  query: string;
+  providerBias: ProviderId[];
+};
+
 export type ProReaderTriage = {
   kind: ProReaderTriageKind;
   query: string;
@@ -53,45 +49,13 @@ export type ProReaderTriage = {
   instruction?: string;
 };
 
-const AMBIGUOUS_TOPICS: Array<{
-  pattern: RegExp;
-  options: ProReaderAmbiguityOption[];
-}> = [
-  {
-    pattern: /\bfable\s*5?\b|fable5|飞波舞/i,
-    options: [
-      {
-        id: "fable-game",
-        label: "Fable 游戏",
-        description: "围绕 Fable 游戏、IP、预告、发售、玩家讨论做资料检索。",
-        query: "Fable game latest news gameplay release discussion",
-        providerBias: ["websearch", "youtube_data_api", "bilibili_mcp", "github"]
-      },
-      {
-        id: "fable-ai-model",
-        label: "Fable AI",
-        description: "围绕 Fable / Fable5 AI 模型、公司、技术发布、评测做资料检索。",
-        query: "Fable Fable5 AI model company benchmark release",
-        providerBias: ["websearch", "github", "official_docs", "wikipedia"]
-      },
-      {
-        id: "both",
-        label: "两个都查",
-        description: "先分开跑两条线，再合并对比来源和结论。",
-        query: "Fable game and Fable AI model disambiguation research",
-        providerBias: ["websearch", "github", "wikipedia", "youtube_data_api", "bilibili_mcp"]
-      }
-    ]
-  }
-];
-
 export function triageProReaderRequest(query: string): ProReaderTriage {
   const trimmed = query.trim();
   if (!trimmed) {
     return {
       kind: "normal_agent",
       query: trimmed,
-      reason: "Empty prompts stay on the normal agent path."
+      reason: "Empty prompts stay on the normal BrowserCode path."
     };
   }
 
@@ -103,52 +67,24 @@ export function triageProReaderRequest(query: string): ProReaderTriage {
     };
   }
 
-  if (looksLikeDirectCodingWork(trimmed)) {
-    return {
-      kind: "normal_agent",
-      query: trimmed,
-      reason: "Direct code editing/debugging prompts should stay on the normal coding agent path."
-    };
-  }
-
-  const ambiguity = detectKnownAmbiguity(trimmed);
-  if (ambiguity) {
-    return {
-      kind: "ambiguous",
-      query: trimmed,
-      reason: "The query has multiple plausible research meanings with different provider bias.",
-      options: ambiguity.options
-    };
-  }
-
-  if (!looksLikeResearchRequest(trimmed)) {
-    return {
-      kind: "normal_agent",
-      query: trimmed,
-      reason: "The prompt looks like ordinary chat or coding work, not fuzzy research discovery."
-    };
-  }
-
-  const route = classifyRoute(trimmed);
+  const route = defaultAgenticRoute();
   return {
     kind: "proreader",
     query: trimmed,
     route,
-    reason: "Natural-language fuzzy research should enter ProReader before ordinary web/search tools.",
-    instruction: renderCoreProReaderInstruction(trimmed, route, route.providers)
+    reason: "Non-URL BrowserCode turns enter ProReader so the agent can make an agentic routing decision.",
+    instruction: renderCoreProReaderInstruction(trimmed, route)
   };
 }
 
 export function buildAmbiguousProReaderQuestion(triage: ProReaderTriage) {
-  if (triage.kind !== "ambiguous" || !triage.options?.length) {
-    throw new Error("PROREADER_TRIAGE_NOT_AMBIGUOUS");
-  }
+  const options = triage.options?.length ? triage.options : defaultAmbiguityOptions(triage.query);
 
   return {
     header: "ProReader",
-    question: `这个查询有多个可能方向。你想让我优先按哪个方向跑 ProReader？\n\n原始查询：${triage.query}`,
+    question: `This query may have multiple plausible research directions. Which direction should ProReader pursue first?\n\nOriginal query: ${triage.query}`,
     multiple: false,
-    options: triage.options.map((option) => ({
+    options: options.map((option) => ({
       label: option.label,
       description: option.description
     }))
@@ -159,17 +95,16 @@ export function resolveAmbiguousProReaderSelection(
   triage: ProReaderTriage,
   selectedLabel: string | undefined
 ): ProReaderTriage {
-  if (triage.kind !== "ambiguous" || !triage.options?.length) return triage;
-
-  const selected = triage.options.find((option) => option.label === selectedLabel) ?? triage.options[0];
-  const route = classifyRoute(selected.query);
+  const options = triage.options?.length ? triage.options : defaultAmbiguityOptions(triage.query);
+  const selected = options.find((option) => option.label === selectedLabel) ?? options[0]!;
+  const route = defaultAgenticRoute();
 
   return {
     kind: "proreader",
     query: selected.query,
     route,
-    reason: `User selected ambiguous ProReader direction: ${selected.label}.`,
-    instruction: renderCoreProReaderInstruction(selected.query, route, route.providers, {
+    reason: `User selected ProReader research direction: ${selected.label}.`,
+    instruction: renderCoreProReaderInstruction(selected.query, route, {
       originalQuery: triage.query,
       selectedDirection: selected.label,
       providerBias: selected.providerBias
@@ -180,7 +115,6 @@ export function resolveAmbiguousProReaderSelection(
 function renderCoreProReaderInstruction(
   query: string,
   route: QueryRoute,
-  providers: ProviderId[],
   extra?: {
     originalQuery?: string;
     selectedDirection?: string;
@@ -190,14 +124,14 @@ function renderCoreProReaderInstruction(
   const lines = [
     "BrowserCode core preflight selected ProReader for this turn.",
     `Query: ${query}`,
-    `Intent: ${route.intent}`,
-    `Mode: ${route.mode}`,
-    `Provider plan: ${unique(providers).join(", ")}`,
-    `Human review required: ${route.requiresHumanReview ? "yes" : "no"}`,
-    "You must call the proreader tool before websearch, webfetch, multi-search-engine, or platform MCP search for this user request.",
-    "Execute ready ProReader actions with existing tools/providers. Use ordinary search only as a ProReader fallback or follow-up evidence tool.",
+    "Hard boundary: this is not an explicit URL, so do not jump straight to websearch, webfetch, multi-search-engine, or platform MCP search.",
+    "Call the proreader tool first. Inside ProReader, perform agentic triage: infer the user's intent and decide whether this is QA, discovery, local knowledge, platform search, GitHub/source research, Wikipedia/reference lookup, or ordinary BrowserCode conversation.",
+    "If the request is not a research/discovery task after agentic triage, explain that decision briefly and continue with the normal BrowserCode answer path.",
+    "If several meanings are plausible with comparable confidence, call the question tool to ask the user to choose a direction, then continue in the same turn.",
+    "After ProReader returns a plan, execute ready actions with existing tools/providers. Use ordinary search only as a ProReader fallback or follow-up evidence tool.",
     "Explicit URLs discovered during execution should use the existing URL pipeline; do not feed explicit URLs back into ProReader.",
-    "Keep agent judgment: if ProReader marks an action unavailable, use ready fallbacks and explain only real gaps."
+    "Keep agent judgment: ProReader is a harness and routing layer, not a script. Use it to steer provider choice without suppressing reasoning.",
+    `Agentic provider envelope: ${route.providers.join(", ")}`
   ];
 
   if (extra?.originalQuery) lines.push(`Original ambiguous query: ${extra.originalQuery}`);
@@ -207,77 +141,55 @@ function renderCoreProReaderInstruction(
   return lines.join("\n");
 }
 
-function looksLikeResearchRequest(query: string) {
-  return /找|搜索|搜|查|研究|调研|资料|内容|来源|资源|信息|相关|最新|有什么|怎么看|整理|收集|入库|候选|deep|research|search|find|collect|source|latest|what.*about|fuzzy/i.test(query);
-}
-
-function looksLikeDirectCodingWork(query: string) {
-  return /(修一下|修复|改一下|实现|重构|测试|typecheck|报错|bug|fix|implement|refactor|test).*(\b[\w.-]+\.(ts|tsx|js|jsx|json|md|py|rs|go)\b|packages\/|apps\/|opencode\/|src\/|\\src\\)/i.test(query);
-}
-
-function classifyRoute(query: string): QueryRoute {
-  if (/入库|收集|整理|资料|候选|evidence pack|collect|ingest|source/i.test(query)) {
-    return {
-      intent: "vault_ingest_request",
-      mode: "discovery_ingest",
-      providers: ["websearch", "github", "wikipedia", "youtube_data_api", "bilibili_mcp", "site_search"],
-      requiresHumanReview: true,
-      requiresVaultWrite: true,
-      reason: "The user is preparing external material for possible knowledge ingestion."
-    };
-  }
-
-  if (/视频|B站|bilibili|youtube|油管|抖音|小红书|tiktok|平台|内容|video|creator/i.test(query)) {
-    return {
-      intent: "video_platform_discovery",
-      mode: "discovery_ingest",
-      providers: ["websearch", "site_search", "youtube_data_api", "bilibili_mcp", "douyin_mcp", "xiaohongshu_mcp"],
-      requiresHumanReview: true,
-      requiresVaultWrite: false,
-      reason: "The user is asking for fuzzy platform search over video/social sources."
-    };
-  }
-
-  if (/github|repo|repository|issue|pull request|\bpr\b|cli|mcp|api|sdk|typescript|python|bun|opencode|codex/i.test(query)) {
-    return {
-      intent: "code_tooling_question",
-      mode: "answer",
-      providers: ["llm_wiki_lite", "github", "official_docs", "websearch"],
-      requiresHumanReview: false,
-      requiresVaultWrite: false,
-      reason: "Code/tooling research benefits from local knowledge, GitHub, official docs, and web search."
-    };
-  }
-
-  if (/是什么|定义|历史|原理|背景|概念|人物|组织|wikipedia|维基|what is|history|background/i.test(query)) {
-    return {
-      intent: "knowledge_definition_question",
-      mode: "answer",
-      providers: ["llm_wiki_lite", "wikipedia", "official_docs", "websearch"],
-      requiresHumanReview: false,
-      requiresVaultWrite: false,
-      reason: "Definition/background questions benefit from local knowledge and reference providers."
-    };
-  }
-
+function defaultAgenticRoute(): QueryRoute {
   return {
     intent: "web_research_question",
     mode: "answer",
-    providers: ["llm_wiki_lite", "websearch", "webfetch"],
+    providers: [
+      "llm_wiki_lite",
+      "websearch",
+      "webfetch",
+      "github",
+      "wikipedia",
+      "official_docs",
+      "youtube_data_api",
+      "bilibili_mcp",
+      "douyin_mcp",
+      "xiaohongshu_mcp",
+      "site_search"
+    ],
     requiresHumanReview: false,
     requiresVaultWrite: false,
-    reason: "Default fuzzy research route uses ProReader before ordinary web search/fetch."
+    reason: "Provider choice is intentionally deferred to ProReader's agentic triage."
   };
 }
 
-function detectKnownAmbiguity(query: string) {
-  return AMBIGUOUS_TOPICS.find((topic) => topic.pattern.test(query));
+function defaultAmbiguityOptions(query: string): ProReaderAmbiguityOption[] {
+  return [
+    {
+      id: "primary",
+      label: "Primary meaning",
+      description: "Use the most likely meaning after ProReader's agentic triage.",
+      query,
+      providerBias: ["llm_wiki_lite", "websearch", "wikipedia", "official_docs"]
+    },
+    {
+      id: "alternate",
+      label: "Alternate meaning",
+      description: "Use the strongest alternate interpretation if the first meaning is not intended.",
+      query,
+      providerBias: ["websearch", "github", "youtube_data_api", "bilibili_mcp"]
+    },
+    {
+      id: "compare",
+      label: "Compare meanings",
+      description: "Research the plausible meanings separately, then compare sources and conclusions.",
+      query,
+      providerBias: ["websearch", "github", "wikipedia", "youtube_data_api", "bilibili_mcp"]
+    }
+  ];
 }
 
 function extractExplicitUrl(input: string) {
   return input.match(/https?:\/\/[^\s<>"']+/i)?.[0];
-}
-
-function unique<T>(items: T[]) {
-  return [...new Set(items)];
 }
