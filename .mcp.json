@@ -8,6 +8,12 @@
       "command": "tools/mcp/.venv/Scripts/python.exe",
       "args": ["tools/mcp/bilibili-readonly-server.py"]
     },
+    "bilibili-video-info": {
+      "command": "tools/mcp/.venv/Scripts/bilibili-video-info-mcp.exe",
+      "env": {
+        "SESSDATA": "${SESSDATA}"
+      }
+    },
     "douyin-cli": {
       "command": "tools/mcp/bin/douyin.exe",
       "args": ["mcp"],

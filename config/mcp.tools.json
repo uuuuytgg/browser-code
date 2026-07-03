@@ -50,7 +50,7 @@
     }
   },
   "bilibiliVideoInfo": {
-    "enabled": false,
+    "enabled": true,
     "server": "bilibili-video-info",
     "source": "github:lesir831/bilibili-video-info-mcp",
     "purpose": "approved_enrichment",
