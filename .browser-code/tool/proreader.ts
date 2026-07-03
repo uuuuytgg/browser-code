@@ -127,6 +127,8 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
         diagnostics,
         instructions: [
           "Execute executablePlan.actions with existing BrowserCode tools, configured MCP tools, provider APIs, or CLI commands.",
+          "For agent_tool websearch actions, use action.toolCandidates to pick the first available search tool; multi_search_engine/multi-search-engine/search are valid equivalents when websearch is not exposed.",
+          "Do not treat webfetch as a websearch replacement. webfetch is only for fetching a known URL after discovery produced one.",
           "Candidate discovery may collect metadata before review.",
           "Do not enrich discovery candidates until approved by a human review manifest.",
           "Do not write vault, kb, or sqlite from ProReader.",

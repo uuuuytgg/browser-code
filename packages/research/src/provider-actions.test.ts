@@ -22,8 +22,18 @@ describe("buildProviderExecutableActions", () => {
         expect.objectContaining({ kind: "harness_command", provider: "llm_wiki_lite" }),
         expect.objectContaining({ kind: "api_request", provider: "github" }),
         expect.objectContaining({ kind: "shell_command", provider: "github", command: "gh" }),
-        expect.objectContaining({ kind: "agent_tool", provider: "github", tool: "websearch" }),
-        expect.objectContaining({ kind: "agent_tool", provider: "official_docs", tool: "websearch" })
+        expect.objectContaining({
+          kind: "agent_tool",
+          provider: "github",
+          tool: "websearch",
+          toolCandidates: expect.arrayContaining(["websearch", "multi_search_engine", "multi-search-engine", "search"])
+        }),
+        expect.objectContaining({
+          kind: "agent_tool",
+          provider: "official_docs",
+          tool: "websearch",
+          toolCandidates: expect.arrayContaining(["websearch", "multi_search_engine", "multi-search-engine", "search"])
+        })
       ])
     );
   });
@@ -110,7 +120,10 @@ describe("buildProviderExecutableActions", () => {
     });
     expect(readiness.find((item) => item.provider === "github" && item.kind === "agent_tool")).toMatchObject({
       status: "ready",
-      missing: []
+      missing: [],
+      notes: expect.arrayContaining([
+        "If the exact websearch tool is not exposed, use the first available equivalent from toolCandidates."
+      ])
     });
     expect(readiness.find((item) => item.provider === "bilibili_mcp" && item.kind === "mcp_tool")).toMatchObject({
       status: "needs_configuration",

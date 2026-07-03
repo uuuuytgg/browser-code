@@ -5,6 +5,7 @@ export type ProviderExecutableAction =
   | {
       kind: "agent_tool";
       tool: "websearch" | "webfetch";
+      toolCandidates?: string[];
       args: Record<string, unknown>;
       sourceRequestId: string;
       provider: ProviderExecutionRequest["provider"];
@@ -175,6 +176,12 @@ function isEnvRequirement(value: string): boolean {
 
 function actionReadinessNotes(action: ProviderExecutableAction, missing: string[]) {
   if (missing.length === 0) {
+    if (action.kind === "agent_tool" && action.tool === "websearch") {
+      return [
+        "Ready through BrowserCode search capability.",
+        "If the exact websearch tool is not exposed, use the first available equivalent from toolCandidates."
+      ];
+    }
     if (action.kind === "agent_tool") return ["Ready through existing BrowserCode agent tool capability."];
     if (action.kind === "harness_command") return ["Ready through local BrowserCode harness; no MCP required."];
     return ["Ready with current runtime configuration."];
@@ -327,6 +334,7 @@ function websearchAction(request: ProviderExecutionRequest, query: string): Prov
   return {
     kind: "agent_tool",
     tool: "websearch",
+    toolCandidates: ["websearch", "multi_search_engine", "multi-search-engine", "search"],
     args: {
       query,
       numResults: numberInput(request, "limit") ?? 10
