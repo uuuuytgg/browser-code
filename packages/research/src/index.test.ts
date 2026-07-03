@@ -68,8 +68,7 @@ describe("routeQuery", () => {
       "youtube_data_api",
       "bilibili_mcp",
       "douyin_mcp",
-      "xiaohongshu_mcp",
-      "tiktok_mcp"
+      "xiaohongshu_mcp"
     ]);
     expect(route.requiresHumanReview).toBe(true);
     expect(route.requiresVaultWrite).toBe(false);
@@ -100,7 +99,7 @@ describe("routeQuery Chinese fuzzy intent coverage", () => {
     expect(route.providers).toEqual(["llm_wiki_lite", "wikipedia", "official_docs", "websearch"]);
   });
 
-  it("routes Chinese video and social platform fuzzy search across all configured platform providers", () => {
+  it("routes Chinese video and social platform fuzzy search across active platform providers", () => {
     const route = routeQuery({
       query: "帮我在 B站、YouTube、抖音、小红书、TikTok 上找 AI Agent 的深度视频内容"
     });
@@ -112,8 +111,7 @@ describe("routeQuery Chinese fuzzy intent coverage", () => {
       "youtube_data_api",
       "bilibili_mcp",
       "douyin_mcp",
-      "xiaohongshu_mcp",
-      "tiktok_mcp"
+      "xiaohongshu_mcp"
     ]);
   });
 

@@ -92,6 +92,7 @@ export type {
   ProviderMode
 } from "./provider-config";
 export {
+  buildEnrichmentMcpToolConfig,
   buildMcpToolsRuntimeBridge,
   diagnoseProviderRuntime
 } from "./runtime-config";
@@ -283,7 +284,7 @@ export function routeQuery(request: ProReaderRequest): QueryRoute {
     return {
       intent: "video_platform_discovery",
       mode: "discovery_ingest",
-      providers: ["websearch", "site_search", "youtube_data_api", "bilibili_mcp", "douyin_mcp", "xiaohongshu_mcp", "tiktok_mcp"],
+      providers: ["websearch", "site_search", "youtube_data_api", "bilibili_mcp", "douyin_mcp", "xiaohongshu_mcp"],
       requiresHumanReview: true,
       requiresVaultWrite: false,
       reason: "The user is asking for fuzzy platform search over video/social sources."
@@ -530,8 +531,7 @@ function buildSiteSearchSteps(query: string): ProviderStep[] {
     ["youtube", "site:youtube.com/watch"],
     ["bilibili", "site:bilibili.com/video"],
     ["douyin", "site:douyin.com"],
-    ["xiaohongshu", "site:xiaohongshu.com"],
-    ["tiktok", "site:tiktok.com"]
+    ["xiaohongshu", "site:xiaohongshu.com"]
   ].map(([id, site]) => ({
     id: `site-search-${id}`,
     provider: "websearch" as const,

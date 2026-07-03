@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildEnrichmentMcpToolConfig,
   buildMcpToolsRuntimeBridge,
   diagnoseProviderRuntime,
   resolveProviderConfig
@@ -91,5 +92,44 @@ describe("MCP tools runtime bridge", () => {
 
     expect(bridge.providerConfigInput.providers).toEqual({});
     expect(bridge.configuredMcpTools).toEqual({});
+  });
+
+  it("maps enabled Bilibili video info MCP config into approved enrichment tools", () => {
+    const config = buildEnrichmentMcpToolConfig({
+      bilibiliVideoInfo: {
+        enabled: true,
+        server: "bilibili-video-info",
+        requiresEnv: ["SESSDATA"],
+        tools: {
+          getSubtitle: "get_subtitles",
+          getDanmaku: "get_danmaku",
+          getComments: "get_comments"
+        }
+      }
+    });
+
+    expect(config).toEqual({
+      bilibiliVideoInfo: {
+        enabled: true,
+        server: "bilibili-video-info",
+        tools: {
+          getSubtitle: "get_subtitles",
+          getDanmaku: "get_danmaku",
+          getComments: "get_comments"
+        }
+      }
+    });
+  });
+
+  it("keeps disabled Bilibili video info MCP out of approved enrichment config", () => {
+    expect(buildEnrichmentMcpToolConfig({
+      bilibiliVideoInfo: {
+        enabled: false,
+        server: "bilibili-video-info",
+        tools: {
+          getSubtitle: "get_subtitles"
+        }
+      }
+    })).toEqual({});
   });
 });

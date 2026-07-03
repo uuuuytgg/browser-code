@@ -43,13 +43,12 @@ describe("buildProviderExecutableActions", () => {
     );
   });
 
-  it("keeps the full video and social fuzzy provider surface executable", () => {
+  it("keeps the active video and social fuzzy provider surface executable", () => {
     const config = resolveProviderConfig({
       providers: {
         bilibili_mcp: { toolName: "bilibili_search" },
         douyin_mcp: { toolName: "douyin_search", command: "douyin-cli" },
-        xiaohongshu_mcp: { toolName: "xhs_search" },
-        tiktok_mcp: { toolName: "tiktok_search" }
+        xiaohongshu_mcp: { toolName: "xhs_search" }
       }
     });
     const { plan } = planProReader({ query: "找 YouTube B站 抖音 小红书 TikTok AI Agent 视频" }, config);
@@ -61,13 +60,11 @@ describe("buildProviderExecutableActions", () => {
         expect.objectContaining({ kind: "api_request", provider: "bilibili_mcp" }),
         expect.objectContaining({ kind: "api_request", provider: "douyin_mcp" }),
         expect.objectContaining({ kind: "api_request", provider: "xiaohongshu_mcp", method: "POST" }),
-        expect.objectContaining({ kind: "api_request", provider: "tiktok_mcp" }),
         expect.objectContaining({ kind: "agent_tool", provider: "youtube_data_api", tool: "websearch" }),
         expect.objectContaining({ kind: "mcp_tool", provider: "bilibili_mcp", toolName: "bilibili_search" }),
         expect.objectContaining({ kind: "mcp_tool", provider: "douyin_mcp", toolName: "douyin_search" }),
         expect.objectContaining({ kind: "shell_command", provider: "douyin_mcp", command: "douyin-cli" }),
-        expect.objectContaining({ kind: "mcp_tool", provider: "xiaohongshu_mcp", toolName: "xhs_search" }),
-        expect.objectContaining({ kind: "mcp_tool", provider: "tiktok_mcp", toolName: "tiktok_search" })
+        expect.objectContaining({ kind: "mcp_tool", provider: "xiaohongshu_mcp", toolName: "xhs_search" })
       ])
     );
     expect(actions.filter((action) => action.kind === "agent_tool").map((action) => JSON.stringify(action))).toEqual(
@@ -75,10 +72,10 @@ describe("buildProviderExecutableActions", () => {
         expect.stringContaining("site:youtube.com/watch"),
         expect.stringContaining("site:bilibili.com/video"),
         expect.stringContaining("site:douyin.com"),
-        expect.stringContaining("site:xiaohongshu.com"),
-        expect.stringContaining("site:tiktok.com")
+        expect.stringContaining("site:xiaohongshu.com")
       ])
     );
+    expect(actions.some((action) => action.provider === "tiktok_mcp")).toBe(false);
   });
 
   it("diagnoses action-level readiness without disabling agent-owned fallbacks", () => {

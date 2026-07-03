@@ -82,7 +82,7 @@ export const defaultProviderConfig: ProReaderProviderConfig = {
       fallbackProviders: ["websearch"]
     },
     tiktok_mcp: {
-      enabled: true,
+      enabled: false,
       mode: "mcp_or_cli",
       fallbackProviders: ["websearch"]
     },

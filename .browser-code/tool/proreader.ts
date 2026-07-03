@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from "node:fs"
 import { delimiter, extname, join } from "node:path"
-import { tool } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
+import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
 import {
   buildMcpToolsRuntimeBridge,
+  buildEnrichmentMcpToolConfig,
   buildProviderExecutionRequests,
   buildProviderExecutableActions,
   diagnoseProviderActionReadiness,
@@ -30,7 +31,7 @@ const providerIds = [
   "site_search",
 ] as const
 
-export default tool({
+const proreaderTool: ToolDefinition = tool({
   description: `Route fuzzy research requests through BrowserCode ProReader.
 
 Use this for natural-language research, local LLM Wiki Lite questions, GitHub/Wikipedia/official-docs planning, and video/social platform discovery.
@@ -46,7 +47,7 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
       .optional()
       .describe("Optional provider allow-list for this planning call."),
     configuredMcpTools: tool.schema
-      .record(tool.schema.string())
+      .record(tool.schema.string(), tool.schema.string())
       .optional()
       .describe("Optional MCP tool-name mapping known to the agent runtime."),
     availableCommands: tool.schema
@@ -77,8 +78,9 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
     }
 
     const mcpRuntimeBridge = loadMcpToolsRuntimeBridge()
+    const enrichmentMcpConfig = loadEnrichmentMcpToolConfig()
     const config = buildConfig(args.enabledProviders as ProviderId[] | undefined, mcpRuntimeBridge.providerConfigInput)
-    const configuredMcpTools = {
+    const configuredMcpTools: Record<string, string> = {
       ...mcpRuntimeBridge.configuredMcpTools,
       ...args.configuredMcpTools,
     }
@@ -121,6 +123,7 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
           configuredMcpTools,
           mcpConfigPath: "config/mcp.tools.json",
         },
+        enrichmentMcpConfig,
         diagnostics,
         instructions: [
           "Execute executablePlan.actions with existing BrowserCode tools, configured MCP tools, provider APIs, or CLI commands.",
@@ -135,6 +138,8 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
     )
   },
 })
+
+export default proreaderTool
 
 function buildConfig(enabledProviders?: ProviderId[], bridgeConfig: ProReaderProviderConfigInput = {}) {
   if (!enabledProviders) return resolveProviderConfig(bridgeConfig)
@@ -161,14 +166,22 @@ function loadMcpToolsRuntimeBridge() {
   return buildMcpToolsRuntimeBridge(config)
 }
 
-function loadRuntimeEnv() {
+function loadEnrichmentMcpToolConfig() {
+  const configPath = join(process.cwd(), "config", "mcp.tools.json")
+  if (!existsSync(configPath)) return buildEnrichmentMcpToolConfig()
+
+  const config = JSON.parse(readFileSync(configPath, "utf8")) as McpToolsConfig
+  return buildEnrichmentMcpToolConfig(config)
+}
+
+function loadRuntimeEnv(): Record<string, string | undefined> {
   return {
     ...readDotEnv(join(process.cwd(), ".env")),
     ...process.env,
   }
 }
 
-function readDotEnv(path: string) {
+function readDotEnv(path: string): Record<string, string> {
   if (!existsSync(path)) return {}
   return Object.fromEntries(
     readFileSync(path, "utf8")

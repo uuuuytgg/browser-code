@@ -1,4 +1,5 @@
 import { defaultProviderConfig, type ProReaderProviderConfig, type ProReaderProviderConfigInput } from "./provider-config";
+import type { EnrichmentMcpToolConfig } from "./enrichment";
 import type { ProviderId } from "./index";
 
 export type ProviderRuntimeStatus = "ready" | "needs_configuration" | "disabled";
@@ -64,6 +65,23 @@ export function buildMcpToolsRuntimeBridge(config: McpToolsConfig = {}): McpTool
   return {
     providerConfigInput,
     configuredMcpTools
+  };
+}
+
+export function buildEnrichmentMcpToolConfig(config: McpToolsConfig = {}): EnrichmentMcpToolConfig {
+  const entry = config.bilibiliVideoInfo;
+  if (!entry?.enabled) return {};
+
+  return {
+    bilibiliVideoInfo: {
+      enabled: true,
+      server: entry.server,
+      tools: {
+        getSubtitle: entry.tools?.getSubtitle,
+        getDanmaku: entry.tools?.getDanmaku,
+        getComments: entry.tools?.getComments
+      }
+    }
   };
 }
 
