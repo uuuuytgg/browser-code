@@ -80,7 +80,7 @@
     }
   },
   "xiaohongshuMcp": {
-    "enabled": false,
+    "enabled": true,
     "server": "xhs-local",
     "source": "github:jobsonlook/xhs-mcp",
     "purpose": "discovery_and_approved_enrichment",

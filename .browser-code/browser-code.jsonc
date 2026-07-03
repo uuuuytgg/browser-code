@@ -33,7 +33,10 @@
       "type": "local",
       "command": ["tools/mcp/.venv/Scripts/uvx.exe", "--from", "jobson-xhs-mcp", "xhs-mcp"],
       "cwd": ".",
-      "enabled": false,
+      "environment": {
+        "XHS_COOKIE": "{env:XHS_COOKIE}",
+      },
+      "enabled": true,
     },
     "douyin-cli": {
       "type": "local",
