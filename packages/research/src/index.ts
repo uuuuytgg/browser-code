@@ -167,6 +167,16 @@ export {
 export type {
   WikipediaSearchQuery
 } from "./wikipedia";
+export {
+  buildAmbiguousProReaderQuestion,
+  resolveAmbiguousProReaderSelection,
+  triageProReaderRequest
+} from "./triage";
+export type {
+  ProReaderAmbiguityOption,
+  ProReaderTriage,
+  ProReaderTriageKind
+} from "./triage";
 
 export type InputDispatch =
   | {
