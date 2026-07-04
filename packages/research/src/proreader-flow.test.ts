@@ -24,6 +24,53 @@ describe("ProReader execution-review-enrichment flow", () => {
     }
   });
 
+  it("returns a structured ProReader decision with KB-first semantics for QA routes", () => {
+    const { decision, plan } = planProReader({
+      query: "browser-code vault 里有没有 Android 17 的资料"
+    });
+
+    expect(decision).toMatchObject({
+      intent: "local_knowledge_qa",
+      complexity: "kb_first",
+      kbPolicy: "required_first",
+      externalPolicy: "fallback_if_kb_insufficient"
+    });
+    expect(decision.actionBatches[0]).toMatchObject({
+      id: "kb-first",
+      independent: false,
+      providers: ["llm_wiki_lite"]
+    });
+    expect(plan.steps[0]).toMatchObject({
+      provider: "llm_wiki_lite",
+      batchId: "kb-first",
+      independent: false
+    });
+  });
+
+  it("marks external discovery batches as bounded independent work after ProReader routing", () => {
+    const { decision, plan } = planProReader({
+      query: "collect AI agent sources",
+      requestedMode: "discovery_ingest"
+    });
+
+    expect(decision).toMatchObject({
+      intent: "vault_ingest",
+      complexity: "multi_source_research",
+      kbPolicy: "skip",
+      externalPolicy: "required"
+    });
+    expect(decision.actionBatches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "candidate-discovery",
+          independent: true,
+          evaluationCriteria: expect.arrayContaining(["Collect candidate metadata only; no enrichment before review."])
+        })
+      ])
+    );
+    expect(plan.steps.every((step) => step.batchId === "candidate-discovery")).toBe(true);
+  });
+
   it("runs the first three integration layers without touching formal knowledge stores", async () => {
     const { route, plan } = planProReader({
       query: "collect AI agent sources",

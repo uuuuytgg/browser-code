@@ -1,21 +1,26 @@
 import type { ProviderExecutionRequest } from "./provider-executor";
 import type { RuntimeEnvironment } from "./runtime-config";
 
-export type ProviderExecutableAction =
+export type ProviderExecutableActionMeta = {
+  sourceRequestId: string;
+  provider: ProviderExecutionRequest["provider"];
+  batchId?: string;
+  dependsOn?: string[];
+  independent?: boolean;
+  evaluationCriteria?: string[];
+};
+
+export type ProviderExecutableAction = (
   | {
       kind: "agent_tool";
       tool: "websearch" | "webfetch";
       toolCandidates?: string[];
       args: Record<string, unknown>;
-      sourceRequestId: string;
-      provider: ProviderExecutionRequest["provider"];
     }
   | {
       kind: "shell_command";
       command: string;
       args: string[];
-      sourceRequestId: string;
-      provider: ProviderExecutionRequest["provider"];
     }
   | {
       kind: "api_request";
@@ -25,25 +30,20 @@ export type ProviderExecutableAction =
       optionalHeadersEnv?: Record<string, string>;
       queryEnv?: Record<string, string>;
       body?: Record<string, unknown>;
-      sourceRequestId: string;
-      provider: ProviderExecutionRequest["provider"];
     }
   | {
       kind: "mcp_tool";
       server?: string;
       toolName: string;
       args: Record<string, unknown>;
-      sourceRequestId: string;
-      provider: ProviderExecutionRequest["provider"];
     }
   | {
       kind: "harness_command";
       command: "bun";
       args: string[];
       outputPath?: string;
-      sourceRequestId: string;
-      provider: ProviderExecutionRequest["provider"];
-    };
+    }
+) & ProviderExecutableActionMeta;
 
 export type ProviderExecutablePlan = {
   actions: ProviderExecutableAction[];
@@ -69,7 +69,9 @@ const PLATFORM_SITE: Partial<Record<ProviderExecutionRequest["provider"], string
 };
 
 export function buildProviderExecutableActions(requests: ProviderExecutionRequest[]): ProviderExecutablePlan {
-  const actions = requests.flatMap(buildActionsForRequest);
+  const actions = requests.flatMap((request) =>
+    buildActionsForRequest(request).map((action) => attachActionMetadata(action, request))
+  );
   return {
     actions,
     notes: [
@@ -77,6 +79,19 @@ export function buildProviderExecutableActions(requests: ProviderExecutionReques
       "Explicit URLs are not represented here; they must remain on the existing BrowserCode URL pipeline.",
       "Discovery actions collect candidates only. Enrichment remains gated by human-approved manifests."
     ]
+  };
+}
+
+function attachActionMetadata(
+  action: ProviderExecutableAction,
+  request: ProviderExecutionRequest
+): ProviderExecutableAction {
+  return {
+    ...action,
+    batchId: request.batchId,
+    dependsOn: request.dependsOn,
+    independent: request.independent,
+    evaluationCriteria: request.evaluationCriteria
   };
 }
 

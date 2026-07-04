@@ -84,7 +84,7 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
       ...mcpRuntimeBridge.configuredMcpTools,
       ...args.configuredMcpTools,
     }
-    const { route, plan } = planProReader(
+    const { route, plan, decision } = planProReader(
       {
         query: args.query,
         requestedMode: args.requestedMode,
@@ -112,8 +112,10 @@ This tool does not fetch URLs, does not enrich unreviewed candidates, and does n
     return JSON.stringify(
       {
         dispatch,
+        decision,
         route,
         plan,
+        actionBatches: plan.actionBatches,
         executionRequests,
         executablePlan,
         actionReadiness,

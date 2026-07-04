@@ -141,6 +141,20 @@ describe("buildProviderExecutableActions", () => {
     });
   });
 
+  it("carries ProReader action batch metadata into executable actions", () => {
+    const { plan, decision } = planProReader({ query: "GitHub MCP official docs implementation" });
+    const actions = buildProviderExecutableActions(buildProviderExecutionRequests(plan)).actions;
+    const githubSearch = actions.find((action) => action.provider === "github" && action.kind === "agent_tool");
+
+    expect(decision.actionBatches.map((batch) => batch.id)).toContain("external-evidence");
+    expect(githubSearch).toMatchObject({
+      batchId: "external-evidence",
+      independent: true,
+      dependsOn: ["kb-first"],
+      evaluationCriteria: expect.arrayContaining(["Collect enough independent evidence to answer without over-searching."])
+    });
+  });
+
   it("diagnoses cookie-gated social platform APIs while leaving Bilibili public search runnable", () => {
     const { plan } = planProReader({ query: "Bilibili 抖音 小红书 TikTok AI Agent 视频" });
     const actions = buildProviderExecutableActions(buildProviderExecutionRequests(plan)).actions;

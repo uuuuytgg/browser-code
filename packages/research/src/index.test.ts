@@ -265,16 +265,21 @@ describe("provider configuration", () => {
     const { plan } = planProReader({ query: "photosynthesis wikipedia history" }, config);
 
     expect(plan.steps.some((step) => step.id === "wikipedia-search")).toBe(false);
-    expect(plan.steps).toContainEqual({
-      id: "wikipedia-fallback-websearch-search",
-      provider: "websearch",
-      action: "search",
-      input: {
-        query: "photosynthesis wikipedia history",
-        disabledProvider: "wikipedia"
-      },
-      requiresApproval: false
-    });
+    expect(plan.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "wikipedia-fallback-websearch-search",
+          provider: "websearch",
+          action: "search",
+          input: {
+            query: "photosynthesis wikipedia history",
+            disabledProvider: "wikipedia"
+          },
+          requiresApproval: false,
+          batchId: "external-evidence"
+        })
+      ])
+    );
   });
 });
 

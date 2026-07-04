@@ -12,6 +12,10 @@ export type ProviderExecutionRequest = {
   id: string;
   provider: ProviderId;
   stepId: string;
+  batchId?: string;
+  dependsOn?: string[];
+  independent?: boolean;
+  evaluationCriteria?: string[];
   kind: ProviderExecutionKind;
   input: Record<string, unknown>;
   requiresNetwork: boolean;
@@ -48,6 +52,10 @@ export function buildProviderExecutionRequests(plan: ProviderPlan): ProviderExec
     id: `${step.id}-execution`,
     provider: step.provider,
     stepId: step.id,
+    batchId: step.batchId,
+    dependsOn: step.dependsOn,
+    independent: step.independent,
+    evaluationCriteria: step.evaluationCriteria,
     kind: inferExecutionKind(step),
     input: step.input,
     requiresNetwork: inferRequiresNetwork(step),
