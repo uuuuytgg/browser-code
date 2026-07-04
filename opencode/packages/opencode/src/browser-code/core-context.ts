@@ -7,7 +7,7 @@ import {
   triageProReaderRequest,
 } from "../../../../../packages/research/src/triage"
 
-export type BrowserCodePhase = "url_pipeline" | "proreader_preflight" | "proreader_execute"
+export type BrowserCodePhase = "url_pipeline" | "explicit_skill_direct" | "proreader_preflight" | "proreader_execute"
 
 export type BrowserCodeCoreContext = {
   phase: BrowserCodePhase
@@ -15,6 +15,7 @@ export type BrowserCodeCoreContext = {
   explicitUrl: boolean
   allowedTools?: string[]
   allowedMcpTools?: string[]
+  allowedSkillNames?: string[]
   systemPrompt: string
 }
 
@@ -40,6 +41,11 @@ const EXECUTION_BACKEND_SKILLS = new Set([
   "multi-search-engine",
 ])
 
+const DIRECT_SKILL_NAMES = [
+  "aihot",
+  "multi-search-engine",
+]
+
 export function buildBrowserCodeCoreContext(input: {
   lastUser?: SessionV1.WithParts
   messages: SessionV1.WithParts[]
@@ -58,6 +64,25 @@ export function buildBrowserCodeCoreContext(input: {
         "Phase: url_pipeline",
         "The latest user input contains an explicit URL. Do not force ProReader.",
         "Use the existing Browser Code URL/video/page pipeline and its current fetch, transcript, media, and vault tools.",
+        "</browser_code_core_context>",
+      ].join("\n"),
+    }
+  }
+
+  const explicitSkillName = extractExplicitSkillName(query)
+  if (explicitSkillName) {
+    return {
+      phase: "explicit_skill_direct",
+      query,
+      explicitUrl: false,
+      allowedTools: ["invalid", "question", "skill"],
+      allowedSkillNames: [explicitSkillName],
+      systemPrompt: [
+        "<browser_code_core_context>",
+        "Phase: explicit_skill_direct",
+        `Latest non-URL query: ${query}`,
+        `The user explicitly requested the ${explicitSkillName} skill. This is a deliberate bypass of ProReader first-route gating.`,
+        "Only the explicitly named skill may be loaded. Do not use this bypass to load route-type skills that the user did not name.",
         "</browser_code_core_context>",
       ].join("\n"),
     }
@@ -104,7 +129,8 @@ export function buildBrowserCodeCoreContext(input: {
       lines.push(`Allowed execution tools for this ProReader plan: ${allowed.tools.join(", ") || "(none)"}.`)
       if (allowed.mcpTools.length) lines.push(`Allowed MCP provider tools: ${allowed.mcpTools.join(", ")}.`)
       if (allowed.tools.includes("skill")) {
-        lines.push("The skill tool is allowed only to load execution-backend skills required by the ProReader plan, such as multi-search-engine; do not load route-type skills to change the route.")
+        lines.push(`Allowed execution-backend skills: ${allowed.skillNames.join(", ") || "(none)"}.`)
+        lines.push("The skill tool is allowed only to load execution-backend skills required by the ProReader plan; do not load route-type skills to change the route.")
       }
       if (allowed.tools.includes("task")) {
         lines.push(
@@ -123,6 +149,7 @@ export function buildBrowserCodeCoreContext(input: {
     explicitUrl: false,
     allowedTools: allowed?.tools,
     allowedMcpTools: allowed?.mcpTools,
+    allowedSkillNames: allowed?.skillNames,
     systemPrompt: lines.join("\n"),
   }
 }
@@ -132,6 +159,9 @@ export function allowToolForBrowserCodeCoreContext(toolID: string, context?: Bro
   if (context.phase === "proreader_execute" && context.allowedTools) {
     return context.allowedTools.includes(toolID)
   }
+  if (context.phase === "explicit_skill_direct" && context.allowedTools) {
+    return context.allowedTools.includes(toolID)
+  }
   if (context.phase !== "proreader_preflight") return true
   return PREFLIGHT_TOOLS.has(toolID)
 }
@@ -139,8 +169,9 @@ export function allowToolForBrowserCodeCoreContext(toolID: string, context?: Bro
 export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
   if (context.phase === "proreader_execute" && context.allowedMcpTools) {
-    return context.allowedMcpTools.includes(toolID)
+    return isAllowedMcpTool(toolID, context.allowedMcpTools)
   }
+  if (context.phase === "explicit_skill_direct") return false
   if (context.phase !== "proreader_preflight") return true
   if (MCP_RESOURCE_TOOLS.has(toolID)) return false
   return PREFLIGHT_TOOLS.has(toolID)
@@ -148,10 +179,27 @@ export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: 
 
 export function allowSkillInstructionForBrowserCodeCoreContext(skillName: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
+  if (context.phase === "explicit_skill_direct") return context.allowedSkillNames?.includes(skillName) ?? false
   if (context.phase === "proreader_preflight") return false
   if (context.phase !== "proreader_execute") return true
   if (!context.allowedTools?.includes("skill")) return false
-  return EXECUTION_BACKEND_SKILLS.has(skillName)
+  return isAllowedExecutionBackendSkill(skillName, context)
+}
+
+export function allowSkillExecutionForBrowserCodeCoreContext(skillName: string, context?: BrowserCodeCoreContext) {
+  return allowSkillInstructionForBrowserCodeCoreContext(skillName, context)
+}
+
+export function allowMcpInstructionForBrowserCodeCoreContext(
+  instruction: { tools: string[] },
+  context?: BrowserCodeCoreContext,
+) {
+  if (!context) return true
+  if (context.phase === "explicit_skill_direct") return false
+  if (context.phase === "proreader_preflight") return false
+  if (context.phase !== "proreader_execute") return true
+  if (!context.allowedMcpTools?.length) return false
+  return instruction.tools.some((tool) => isAllowedMcpTool(tool, context.allowedMcpTools ?? []))
 }
 
 function extractText(message?: SessionV1.WithParts) {
@@ -195,8 +243,9 @@ type ProReaderToolOutput = {
 
 function parseProReaderOutput(output: string | undefined): ProReaderToolOutput | undefined {
   if (!output) return undefined
+  const json = extractJsonObject(output)
   try {
-    const parsed = JSON.parse(output) as ProReaderToolOutput
+    const parsed = JSON.parse(json) as ProReaderToolOutput
     return Array.isArray(parsed.executablePlan?.actions) ? parsed : undefined
   } catch {
     return undefined
@@ -206,6 +255,7 @@ function parseProReaderOutput(output: string | undefined): ProReaderToolOutput |
 function deriveAllowedTools(plan: ProReaderToolOutput) {
   const tools = new Set(EXECUTE_BASE_TOOLS)
   const mcpTools = new Set<string>()
+  const skillNames = new Set<string>()
   const enhancedResearch = plan.decision?.executionProfile === "enhanced_research"
     && plan.decision?.workflowPolicy === "explicit_opt_in"
     && plan.decision?.subagentPlan?.reviewRequired === true
@@ -216,6 +266,7 @@ function deriveAllowedTools(plan: ProReaderToolOutput) {
       for (const candidate of action.toolCandidates ?? []) tools.add(candidate)
       if (action.tool === "websearch" || action.toolCandidates?.some(isSearchBackendCandidate)) {
         tools.add("skill")
+        skillNames.add("multi-search-engine")
       }
       continue
     }
@@ -235,11 +286,44 @@ function deriveAllowedTools(plan: ProReaderToolOutput) {
   return {
     tools: Array.from(tools).sort(),
     mcpTools: Array.from(mcpTools).sort(),
+    skillNames: Array.from(skillNames).sort(),
   }
 }
 
 function isSearchBackendCandidate(candidate: string) {
   return candidate === "multi_search_engine" || candidate === "multi-search-engine" || candidate === "search"
+}
+
+function extractExplicitSkillName(query: string) {
+  const normalized = query.toLowerCase()
+  for (const name of DIRECT_SKILL_NAMES) {
+    if (normalized.includes(name.toLowerCase())) return name
+  }
+  return undefined
+}
+
+function isAllowedExecutionBackendSkill(skillName: string, context: BrowserCodeCoreContext) {
+  if (!EXECUTION_BACKEND_SKILLS.has(skillName)) return false
+  if (!context.allowedSkillNames?.length) return false
+  return context.allowedSkillNames.includes(skillName)
+}
+
+function isAllowedMcpTool(toolID: string, allowedMcpTools: string[]) {
+  return allowedMcpTools.some((allowed) => {
+    if (toolID === allowed) return true
+    return toolID.endsWith(`_${allowed}`)
+  })
+}
+
+function extractJsonObject(output: string) {
+  const trimmed = output.trim()
+  if (trimmed.startsWith("{")) return trimmed
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fenced?.[1]?.trim().startsWith("{")) return fenced[1].trim()
+  const start = trimmed.indexOf("{")
+  const end = trimmed.lastIndexOf("}")
+  if (start >= 0 && end > start) return trimmed.slice(start, end + 1)
+  return trimmed
 }
 
 function buildRuntimeLlmWikiLiteStateSummary() {

@@ -18,9 +18,16 @@ export type ProReaderSubagentBatch = {
   prompt: string;
 };
 
+export type ProReaderReviewerPlan = {
+  role: Extract<ProReaderSubagentRole, "source_reviewer" | "synthesis_reviewer">;
+  dependsOn: string[];
+  prompt: string;
+};
+
 export type ProReaderSubagentPlan = {
   roles: ProReaderSubagentRole[];
   batches: ProReaderSubagentBatch[];
+  reviewers: ProReaderReviewerPlan[];
   reviewRequired: true;
   instructions: string[];
 };
@@ -59,6 +66,18 @@ export function buildSubagentPlan(input: {
   return {
     roles: ["search_worker", "kb_worker", "source_reviewer", "synthesis_reviewer"],
     batches,
+    reviewers: [
+      {
+        role: "source_reviewer",
+        dependsOn: batches.map((batch) => batch.batchId),
+        prompt: buildSourceReviewerPrompt(input.query, batches),
+      },
+      {
+        role: "synthesis_reviewer",
+        dependsOn: ["source_reviewer"],
+        prompt: buildSynthesisReviewerPrompt(input.query, batches),
+      },
+    ],
     reviewRequired: true,
     instructions: [
       "Subagents execute only the assigned ProReader batch; they must not change the route.",
@@ -85,5 +104,27 @@ function buildWorkerPrompt(query: string, batch: ProReaderActionBatch) {
     "Do not write vault, kb, sqlite, or any formal knowledge store.",
     "Return structured sections: evidence, candidates, uncertainty, source_notes.",
     `Evaluation criteria: ${batch.evaluationCriteria.join(" | ")}`,
+  ].join("\n");
+}
+
+function buildSourceReviewerPrompt(query: string, batches: ProReaderSubagentBatch[]) {
+  return [
+    "You are the Browser Code ProReader source_reviewer.",
+    `Original query: ${query}`,
+    `Review worker batches: ${batches.map((batch) => batch.batchId).join(", ")}`,
+    "Check source authority, duplication, platform/content contamination, evidence strength, and whether the sources match the ProReader route.",
+    "Do not change the route, fetch unrelated sources, or write vault/kb/sqlite.",
+    "Return structured sections: accepted_sources, rejected_sources, duplicate_clusters, uncertainty, review_notes.",
+  ].join("\n");
+}
+
+function buildSynthesisReviewerPrompt(query: string, batches: ProReaderSubagentBatch[]) {
+  return [
+    "You are the Browser Code ProReader synthesis_reviewer.",
+    `Original query: ${query}`,
+    `Review worker batches: ${batches.map((batch) => batch.batchId).join(", ")}`,
+    "Check whether the draft answer covers the user question, stays inside the ProReader route, avoids over-searching, and cites evidence clearly.",
+    "Do not change the route, fetch unrelated sources, or write vault/kb/sqlite.",
+    "Return structured sections: coverage_gaps, over_search_risk, citation_issues, final_synthesis_notes.",
   ].join("\n");
 }

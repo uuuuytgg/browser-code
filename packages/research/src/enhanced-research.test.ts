@@ -20,6 +20,16 @@ describe("enhanced research execution profile", () => {
       roles: ["search_worker", "kb_worker", "source_reviewer", "synthesis_reviewer"],
       reviewRequired: true,
     });
+    expect(decision.subagentPlan?.reviewers).toHaveLength(2);
+    expect(decision.subagentPlan?.reviewers[0]).toMatchObject({
+      role: "source_reviewer",
+    });
+    expect(decision.subagentPlan?.reviewers[0]?.prompt).toContain("source authority");
+    expect(decision.subagentPlan?.reviewers[1]).toMatchObject({
+      role: "synthesis_reviewer",
+      dependsOn: ["source_reviewer"],
+    });
+    expect(decision.subagentPlan?.reviewers[1]?.prompt).toContain("covers the user question");
     expect(decision.subagentPlan?.batches.every((batch) => batch.independent)).toBe(true);
     expect(decision.subagentPlan?.batches[0]?.prompt).toContain("Do not change the ProReader route");
     expect(decision.subagentPlan?.batches[0]?.prompt).toContain("Do not write vault, kb, sqlite");

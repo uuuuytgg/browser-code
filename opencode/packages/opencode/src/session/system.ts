@@ -25,6 +25,7 @@ import { Reference } from "@opencode-ai/core/reference"
 import { MCP } from "@/mcp"
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import {
+  allowMcpInstructionForBrowserCodeCoreContext,
   allowSkillInstructionForBrowserCodeCoreContext,
   type BrowserCodeCoreContext,
 } from "@/browser-code/core-context"
@@ -52,7 +53,11 @@ export function provider(model: Provider.Model) {
 export interface Interface {
   readonly environment: (model: Provider.Model) => Effect.Effect<string[]>
   readonly skills: (agent: Agent.Info, browserCodeCoreContext?: BrowserCodeCoreContext) => Effect.Effect<string | undefined>
-  readonly mcp: (agent: Agent.Info, permission?: PermissionV1.Ruleset) => Effect.Effect<string | undefined>
+  readonly mcp: (
+    agent: Agent.Info,
+    permission?: PermissionV1.Ruleset,
+    browserCodeCoreContext?: BrowserCodeCoreContext,
+  ) => Effect.Effect<string | undefined>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/SystemPrompt") {}
@@ -123,10 +128,16 @@ export const layer = Layer.effect(
         ].join("\n")
       }),
 
-      mcp: Effect.fn("SystemPrompt.mcp")(function* (agent: Agent.Info, permission?: PermissionV1.Ruleset) {
+      mcp: Effect.fn("SystemPrompt.mcp")(function* (
+        agent: Agent.Info,
+        permission?: PermissionV1.Ruleset,
+        browserCodeCoreContext?: BrowserCodeCoreContext,
+      ) {
         const ruleset = Permission.merge(agent.permission, permission ?? [])
         const instructions = (yield* mcp.instructions()).filter(
-          (item) => item.tools.length === 0 || Permission.disabled(item.tools, ruleset).size < item.tools.length,
+          (item) =>
+            (item.tools.length === 0 || Permission.disabled(item.tools, ruleset).size < item.tools.length)
+            && allowMcpInstructionForBrowserCodeCoreContext(item, browserCodeCoreContext),
         )
         if (instructions.length === 0) return
 

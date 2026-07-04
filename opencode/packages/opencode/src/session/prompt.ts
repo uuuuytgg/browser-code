@@ -1368,7 +1368,7 @@ export const layer = Layer.effect(
               sys.skills(agent, browserCodeCoreContext),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
-              sys.mcp(agent, session.permission),
+              sys.mcp(agent, session.permission, browserCodeCoreContext),
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
             const system = [
