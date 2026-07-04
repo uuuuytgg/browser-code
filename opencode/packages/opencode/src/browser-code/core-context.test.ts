@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  allowSkillInstructionForBrowserCodeCoreContext,
   allowToolForBrowserCodeCoreContext,
   buildBrowserCodeCoreContext,
 } from "./core-context"
@@ -70,6 +71,7 @@ describe("BrowserCode core context enhanced research gate", () => {
     expect(allowToolForBrowserCodeCoreContext("proreader", context)).toBe(true)
     expect(allowToolForBrowserCodeCoreContext("task", context)).toBe(false)
     expect(allowToolForBrowserCodeCoreContext("skill", context)).toBe(false)
+    expect(allowSkillInstructionForBrowserCodeCoreContext("multi-search-engine", context)).toBe(false)
   })
 
   it("does not allow task for a normal ProReader plan", () => {
@@ -83,6 +85,31 @@ describe("BrowserCode core context enhanced research gate", () => {
     expect(context?.allowedTools).toContain("skill")
     expect(context?.allowedTools).not.toContain("task")
     expect(allowToolForBrowserCodeCoreContext("task", context)).toBe(false)
+    expect(allowSkillInstructionForBrowserCodeCoreContext("multi-search-engine", context)).toBe(true)
+    expect(allowSkillInstructionForBrowserCodeCoreContext("aihot", context)).toBe(false)
+  })
+
+  it("hides all skill instructions when a ProReader plan does not need a skill backend", () => {
+    const lastUser = userMessage("u1", "MCP workflow research")
+    const context = buildBrowserCodeCoreContext({
+      lastUser,
+      messages: [
+        lastUser,
+        assistantWithTool(
+          "proreader",
+          JSON.stringify({
+            decision: { executionProfile: "normal", workflowPolicy: "disabled" },
+            executablePlan: {
+              actions: [{ kind: "agent_tool", tool: "webfetch" }],
+            },
+          }),
+        ),
+      ],
+    })
+
+    expect(context?.phase).toBe("proreader_execute")
+    expect(context?.allowedTools).not.toContain("skill")
+    expect(allowSkillInstructionForBrowserCodeCoreContext("multi-search-engine", context)).toBe(false)
   })
 
   it("allows task only after an enhanced ProReader plan", () => {

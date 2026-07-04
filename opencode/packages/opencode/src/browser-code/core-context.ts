@@ -36,6 +36,10 @@ const EXECUTE_BASE_TOOLS = new Set([
   "proreader",
 ])
 
+const EXECUTION_BACKEND_SKILLS = new Set([
+  "multi-search-engine",
+])
+
 export function buildBrowserCodeCoreContext(input: {
   lastUser?: SessionV1.WithParts
   messages: SessionV1.WithParts[]
@@ -140,6 +144,14 @@ export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: 
   if (context.phase !== "proreader_preflight") return true
   if (MCP_RESOURCE_TOOLS.has(toolID)) return false
   return PREFLIGHT_TOOLS.has(toolID)
+}
+
+export function allowSkillInstructionForBrowserCodeCoreContext(skillName: string, context?: BrowserCodeCoreContext) {
+  if (!context) return true
+  if (context.phase === "proreader_preflight") return false
+  if (context.phase !== "proreader_execute") return true
+  if (!context.allowedTools?.includes("skill")) return false
+  return EXECUTION_BACKEND_SKILLS.has(skillName)
 }
 
 function extractText(message?: SessionV1.WithParts) {
