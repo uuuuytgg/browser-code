@@ -3,6 +3,13 @@ import { planOfficialDocsSearchSteps } from "./official-docs";
 import { planPlatformSearchSteps } from "./platform-search";
 import { getProviderConfig, resolveProviderConfig } from "./provider-config";
 import { planWikipediaSearchSteps } from "./wikipedia";
+import {
+  buildSubagentPlan,
+  chooseExecutionProfile,
+  type ProReaderExecutionProfile,
+  type ProReaderSubagentPlan,
+  type ProReaderWorkflowPolicy
+} from "./enhanced-research";
 
 export {
   assertEnrichmentUsesApprovedManifest,
@@ -186,6 +193,18 @@ export type {
   LlmWikiLiteStateInput
 } from "./llm-wiki-state";
 export {
+  buildSubagentPlan,
+  chooseExecutionProfile,
+  isEnhancedResearchRequested
+} from "./enhanced-research";
+export type {
+  ProReaderExecutionProfile,
+  ProReaderSubagentBatch,
+  ProReaderSubagentPlan,
+  ProReaderSubagentRole,
+  ProReaderWorkflowPolicy
+} from "./enhanced-research";
+export {
   buildAmbiguousProReaderQuestion,
   resolveAmbiguousProReaderSelection,
   triageProReaderRequest
@@ -254,6 +273,9 @@ export type ProReaderDecision = {
   externalPolicy: "none" | "fallback_if_kb_insufficient" | "required";
   actionBatches: ProReaderActionBatch[];
   evaluationCriteria: string[];
+  executionProfile: ProReaderExecutionProfile;
+  workflowPolicy: ProReaderWorkflowPolicy;
+  subagentPlan?: ProReaderSubagentPlan;
 };
 
 export type ProviderId =
@@ -504,7 +526,7 @@ export function planProReader(
   return {
     route,
     plan,
-    decision: buildProReaderDecision(route, plan)
+    decision: buildProReaderDecision(request.query, route, plan)
   };
 }
 
@@ -633,16 +655,31 @@ function filterDiscoverySteps(route: QueryRoute, steps: ProviderStep[]) {
   return steps.filter((step) => step.action === "search");
 }
 
-function buildProReaderDecision(route: QueryRoute, plan: ProviderPlan): ProReaderDecision {
+function buildProReaderDecision(query: string, route: QueryRoute, plan: ProviderPlan): ProReaderDecision {
   const intent = toProReaderIntent(route.intent);
+  const complexity = inferComplexity(route);
+  const executionProfile = chooseExecutionProfile({
+    query,
+    complexity,
+    batches: plan.actionBatches
+  });
+  const subagentPlan = executionProfile === "enhanced_research"
+    ? buildSubagentPlan({
+      query,
+      batches: plan.actionBatches
+    })
+    : undefined;
   return {
     intent,
-    complexity: inferComplexity(route),
+    complexity,
     providerBias: route.providers,
     kbPolicy: inferKbPolicy(route),
     externalPolicy: inferExternalPolicy(route),
     actionBatches: plan.actionBatches,
-    evaluationCriteria: buildEvaluationCriteria(route)
+    evaluationCriteria: buildEvaluationCriteria(route),
+    executionProfile,
+    workflowPolicy: executionProfile === "enhanced_research" ? "explicit_opt_in" : "disabled",
+    ...(subagentPlan ? { subagentPlan } : {})
   };
 }
 

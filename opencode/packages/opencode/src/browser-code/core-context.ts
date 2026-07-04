@@ -102,6 +102,13 @@ export function buildBrowserCodeCoreContext(input: {
       if (allowed.tools.includes("skill")) {
         lines.push("The skill tool is allowed only to load execution-backend skills required by the ProReader plan, such as multi-search-engine; do not load route-type skills to change the route.")
       }
+      if (allowed.tools.includes("task")) {
+        lines.push(
+          "Enhanced research is explicitly enabled by the ProReader decision. The task tool may be used only for independent ProReader action batches or reviewer roles from decision.subagentPlan.",
+          "Subagents must not change the ProReader route, must not write vault/kb/sqlite, and must return structured evidence/candidates/uncertainty/source_notes for main-agent synthesis.",
+          "Subagent output is not final: source_reviewer and synthesis_reviewer checks must be reflected before answering or saving.",
+        )
+      }
     }
   }
 
@@ -157,6 +164,13 @@ function findCompletedToolOutputAfterLatestUser(
 }
 
 type ProReaderToolOutput = {
+  decision?: {
+    executionProfile?: string
+    workflowPolicy?: string
+    subagentPlan?: {
+      reviewRequired?: boolean
+    }
+  }
   executablePlan?: {
     actions?: Array<{
       kind?: string
@@ -180,6 +194,9 @@ function parseProReaderOutput(output: string | undefined): ProReaderToolOutput |
 function deriveAllowedTools(plan: ProReaderToolOutput) {
   const tools = new Set(EXECUTE_BASE_TOOLS)
   const mcpTools = new Set<string>()
+  const enhancedResearch = plan.decision?.executionProfile === "enhanced_research"
+    && plan.decision?.workflowPolicy === "explicit_opt_in"
+    && plan.decision?.subagentPlan?.reviewRequired === true
 
   for (const action of plan.executablePlan?.actions ?? []) {
     if (action.kind === "agent_tool" && action.tool) {
@@ -200,6 +217,8 @@ function deriveAllowedTools(plan: ProReaderToolOutput) {
       tools.add("bash")
     }
   }
+
+  if (enhancedResearch) tools.add("task")
 
   return {
     tools: Array.from(tools).sort(),
