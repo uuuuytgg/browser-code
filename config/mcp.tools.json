@@ -1,4 +1,22 @@
 {
+  "githubCli": {
+    "enabled": true,
+    "server": "local-cli",
+    "source": "github:cli/cli",
+    "purpose": "github_discovery_and_source_research",
+    "requiresEnv": ["GITHUB_TOKEN", "GH_TOKEN"],
+    "notes": [
+      "Global GitHub CLI backend for ProReader GitHub provider.",
+      "Used for fuzzy repository, issue, pull request, release, and code discovery after ProReader selects GitHub.",
+      "Direct GitHub URLs still stay on the existing BrowserCode URL pipeline."
+    ],
+    "tools": {
+      "searchRepos": "gh search repos",
+      "searchIssues": "gh search issues",
+      "searchPrs": "gh search prs",
+      "searchCode": "gh search code"
+    }
+  },
   "youtubeTranscript": {
     "enabled": true,
     "server": "youtube-transcript",
