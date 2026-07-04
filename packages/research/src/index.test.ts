@@ -154,6 +154,57 @@ describe("planProReader", () => {
     expect(plan.steps.every((step) => step.action === "search")).toBe(true);
     expect(plan.steps.every((step) => step.requiresApproval === false)).toBe(true);
   });
+
+  it("uses the model supplied agentic decision as the provider steering source", () => {
+    const { route, plan, decision } = planProReader({
+      query: "深度研究华为昇腾论文 v2 v1 变化区别",
+      agenticDecision: {
+        intent: "external_knowledge_qa",
+        researchDepth: "deep",
+        providerBias: ["llm_wiki_lite", "wikipedia", "official_docs", "github", "websearch"],
+        needsCandidateReview: false,
+        saveMode: "single_report",
+        rationale: "The user asked for deep research over a technical knowledge topic."
+      }
+    });
+
+    expect(route.providers).toEqual(["llm_wiki_lite", "wikipedia", "official_docs", "github", "websearch"]);
+    expect(decision.intent).toBe("external_knowledge_qa");
+    expect(decision.researchDepth).toBe("deep");
+    expect(decision.complexity).toBe("deep_iterative_research");
+    expect(plan.steps.some((step) => step.provider === "wikipedia")).toBe(true);
+    expect(plan.steps.some((step) => step.provider === "official_docs")).toBe(true);
+    expect(plan.steps.some((step) => step.provider === "github")).toBe(true);
+  });
+
+  it("does not collapse platform discovery decisions into generic multi-search-engine only", () => {
+    const { route, plan, decision } = planProReader({
+      query: "深度研究 AI Agent 在 B站 抖音 小红书 YouTube 的高质量内容",
+      agenticDecision: {
+        intent: "platform_discovery",
+        researchDepth: "deep",
+        providerBias: [
+          "youtube_data_api",
+          "bilibili_mcp",
+          "douyin_mcp",
+          "xiaohongshu_mcp",
+          "site_search",
+          "websearch"
+        ],
+        needsCandidateReview: true,
+        saveMode: "candidate_selection",
+        rationale: "The user asked for platform-internal discovery."
+      }
+    });
+
+    expect(route.mode).toBe("discovery_ingest");
+    expect(decision.needsCandidateReview).toBe(true);
+    expect(decision.saveMode).toBe("candidate_selection");
+    expect(plan.steps.map((step) => step.provider)).toEqual(
+      expect.arrayContaining(["youtube_data_api", "bilibili_mcp", "douyin_mcp", "xiaohongshu_mcp"])
+    );
+    expect(plan.steps.filter((step) => step.provider === "websearch").length).toBeLessThan(plan.steps.length);
+  });
 });
 
 describe("answer system planning", () => {

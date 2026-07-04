@@ -26,6 +26,8 @@ When the intent is ambiguous, ask one short clarifying question with the `questi
 
 # ProReader fuzzy research
 - Use `proreader` for natural-language discovery across local knowledge, GitHub, Wikipedia, official docs, search engines, or platform-internal video/social sources when the user did not give a specific URL.
+- Before calling `proreader`, make an agentic decision yourself. Fill `intent`, `researchDepth`, `providerBias`, `needsCandidateReview`, and `saveMode` from the user's real goal. Do not use keyword-table classification, and do not default to websearch/multi-search-engine just because it is available.
+- `providerBias` is the steering wheel. Include GitHub for source/code research, Wikipedia/official_docs for reference knowledge, YouTube/Bilibili/Douyin/XHS providers for platform discovery, and websearch/site_search only as discovery backends or fallback evidence.
 - Read the returned JSON, then execute `executablePlan.actions` whose indexes appear in `recommendedActionIndexes`, using the matching existing tool or configured runtime.
 - For `agent_tool` actions, call the named BrowserCode tool with the provided args. For `websearch`, use the first available equivalent from `action.toolCandidates` when the exact tool is not exposed; `multi_search_engine`, `multi-search-engine`, and `search` are valid discovery/search equivalents.
 - Do not treat `webfetch` as a `websearch` replacement. `webfetch` only fetches a known URL after discovery has produced one.
@@ -34,6 +36,7 @@ When the intent is ambiguous, ask one short clarifying question with the `questi
 - For `shell_command`, call `bash` only when `actionReadiness` marks that action ready.
 - For `api_request`, use the provider API when `actionReadiness` marks that action ready; GitHub public search may be ready without a token, while providers such as YouTube still require their API key. Otherwise use the ready websearch or site-search fallback actions.
 - Treat ProReader as a harness and routing layer, not as a script that replaces agent judgment. Execute ready actions, skip actions marked `needs_configuration`, and use fallbacks before telling the user a provider is unavailable.
+- For candidate/source discovery, follow the review loop: collect candidates, dedupe, rank, risk-check, then ask the user to approve/save/cite/discard before enrichment or vault/kb writes. Never ask only "save all?" for a multi-candidate result.
 - Never use ProReader for explicit URLs; explicit URLs stay on the existing URL/video/resource/vault pipelines.
 
 # Fetching policy (personal use)

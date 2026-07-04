@@ -267,10 +267,13 @@ export type ProReaderActionBatch = {
 
 export type ProReaderDecision = {
   intent: ProReaderIntent;
+  researchDepth: AgenticResearchDepth;
   complexity: QueryComplexity;
   providerBias: ProviderId[];
   kbPolicy: "required_first" | "optional" | "skip";
   externalPolicy: "none" | "fallback_if_kb_insufficient" | "required";
+  saveMode: AgenticSaveMode;
+  needsCandidateReview: boolean;
   actionBatches: ProReaderActionBatch[];
   evaluationCriteria: string[];
   executionProfile: ProReaderExecutionProfile;
@@ -292,6 +295,21 @@ export type ProviderId =
   | "tiktok_mcp"
   | "site_search";
 
+const providerIds = new Set<ProviderId>([
+  "llm_wiki_lite",
+  "websearch",
+  "webfetch",
+  "github",
+  "wikipedia",
+  "official_docs",
+  "youtube_data_api",
+  "bilibili_mcp",
+  "douyin_mcp",
+  "xiaohongshu_mcp",
+  "tiktok_mcp",
+  "site_search"
+]);
+
 export type QueryRoute = {
   intent: QueryIntent;
   mode: "answer" | "discovery_ingest";
@@ -299,6 +317,19 @@ export type QueryRoute = {
   requiresHumanReview: boolean;
   requiresVaultWrite: boolean;
   reason: string;
+};
+
+export type AgenticResearchDepth = "none" | "quick" | "standard" | "deep";
+
+export type AgenticSaveMode = "none" | "single_report" | "candidate_selection";
+
+export type AgenticProReaderDecisionInput = {
+  intent: ProReaderIntent;
+  researchDepth: AgenticResearchDepth;
+  providerBias: ProviderId[];
+  needsCandidateReview: boolean;
+  saveMode: AgenticSaveMode;
+  rationale?: string;
 };
 
 export type ProviderStep = {
@@ -321,7 +352,9 @@ export type ProviderPlan = {
 
 export type ProReaderRequest = {
   query: string;
+  /** @deprecated Use agenticDecision. Kept only for old callers/tests. */
   requestedMode?: "answer" | "discovery_ingest";
+  agenticDecision?: AgenticProReaderDecisionInput;
 };
 
 export type ResearchCandidate = {
@@ -360,6 +393,10 @@ export function dispatchInput(input: string): InputDispatch {
 
 export function routeQuery(request: ProReaderRequest): QueryRoute {
   const query = request.query.trim();
+
+  if (request.agenticDecision) {
+    return routeFromAgenticDecision(request.agenticDecision);
+  }
 
   if (matchesVaultIngestRequest(query) || request.requestedMode === "discovery_ingest") {
     return {
@@ -419,11 +456,60 @@ export function routeQuery(request: ProReaderRequest): QueryRoute {
   return {
     intent: "web_research_question",
     mode: "answer",
-    providers: ["llm_wiki_lite", "websearch", "webfetch"],
+    providers: defaultAgenticProviderEnvelope(),
     requiresHumanReview: false,
     requiresVaultWrite: false,
-    reason: "Default answer route uses local context and existing web search/fetch."
+    reason: "No explicit agentic decision was supplied; keep the full ProReader provider envelope available instead of defaulting to generic websearch."
   };
+}
+
+function routeFromAgenticDecision(decision: AgenticProReaderDecisionInput): QueryRoute {
+  const providers = normalizeProviderBias(decision.providerBias);
+  const mode = decision.needsCandidateReview || decision.saveMode === "candidate_selection"
+    ? "discovery_ingest"
+    : "answer";
+
+  return {
+    intent: queryIntentFromProReaderIntent(decision.intent),
+    mode,
+    providers,
+    requiresHumanReview: decision.needsCandidateReview || decision.saveMode === "candidate_selection",
+    requiresVaultWrite: decision.intent === "vault_ingest",
+    reason: decision.rationale || "Route is driven by the model's ProReader agentic intent decision."
+  };
+}
+
+function normalizeProviderBias(providerBias: ProviderId[]): ProviderId[] {
+  const providers = unique(providerBias.filter((provider): provider is ProviderId => providerIds.has(provider)));
+  if (!providers.length) return defaultAgenticProviderEnvelope();
+  if (!providers.includes("llm_wiki_lite")) providers.unshift("llm_wiki_lite");
+  return providers;
+}
+
+function queryIntentFromProReaderIntent(intent: ProReaderIntent): QueryIntent {
+  if (intent === "local_knowledge_qa") return "local_wiki_question";
+  if (intent === "external_knowledge_qa") return "knowledge_definition_question";
+  if (intent === "code_source_research") return "code_tooling_question";
+  if (intent === "platform_discovery") return "video_platform_discovery";
+  if (intent === "trend_research") return "trend_ecosystem_discovery";
+  if (intent === "vault_ingest") return "vault_ingest_request";
+  return "web_research_question";
+}
+
+function defaultAgenticProviderEnvelope(): ProviderId[] {
+  return [
+    "llm_wiki_lite",
+    "github",
+    "wikipedia",
+    "official_docs",
+    "youtube_data_api",
+    "bilibili_mcp",
+    "douyin_mcp",
+    "xiaohongshu_mcp",
+    "site_search",
+    "websearch",
+    "webfetch"
+  ];
 }
 
 export function planProviders(route: QueryRoute, query: string, config = resolveProviderConfig()): ProviderPlan {
@@ -526,7 +612,7 @@ export function planProReader(
   return {
     route,
     plan,
-    decision: buildProReaderDecision(request.query, route, plan)
+    decision: buildProReaderDecision(request.query, route, plan, request.agenticDecision)
   };
 }
 
@@ -655,9 +741,16 @@ function filterDiscoverySteps(route: QueryRoute, steps: ProviderStep[]) {
   return steps.filter((step) => step.action === "search");
 }
 
-function buildProReaderDecision(query: string, route: QueryRoute, plan: ProviderPlan): ProReaderDecision {
-  const intent = toProReaderIntent(route.intent);
-  const complexity = inferComplexity(route);
+function buildProReaderDecision(
+  query: string,
+  route: QueryRoute,
+  plan: ProviderPlan,
+  agenticDecision?: AgenticProReaderDecisionInput
+): ProReaderDecision {
+  const intent = agenticDecision?.intent ?? toProReaderIntent(route.intent);
+  const complexity = agenticDecision
+    ? inferComplexityFromAgenticDecision(agenticDecision, route)
+    : inferComplexity(route);
   const executionProfile = chooseExecutionProfile({
     query,
     complexity,
@@ -671,16 +764,36 @@ function buildProReaderDecision(query: string, route: QueryRoute, plan: Provider
     : undefined;
   return {
     intent,
+    researchDepth: agenticDecision?.researchDepth ?? researchDepthFromComplexity(complexity),
     complexity,
-    providerBias: route.providers,
+    providerBias: agenticDecision?.providerBias?.length ? normalizeProviderBias(agenticDecision.providerBias) : route.providers,
     kbPolicy: inferKbPolicy(route),
     externalPolicy: inferExternalPolicy(route),
+    saveMode: agenticDecision?.saveMode ?? (route.requiresHumanReview ? "candidate_selection" : "single_report"),
+    needsCandidateReview: agenticDecision?.needsCandidateReview ?? route.requiresHumanReview,
     actionBatches: plan.actionBatches,
     evaluationCriteria: buildEvaluationCriteria(route),
     executionProfile,
     workflowPolicy: executionProfile === "enhanced_research" ? "explicit_opt_in" : "disabled",
     ...(subagentPlan ? { subagentPlan } : {})
   };
+}
+
+function inferComplexityFromAgenticDecision(
+  decision: AgenticProReaderDecisionInput,
+  route: QueryRoute
+): QueryComplexity {
+  if (decision.researchDepth === "none") return "no_search";
+  if (decision.researchDepth === "deep") return "deep_iterative_research";
+  if (decision.providerBias.length > 3) return "multi_source_research";
+  return inferComplexity(route);
+}
+
+function researchDepthFromComplexity(complexity: QueryComplexity): AgenticResearchDepth {
+  if (complexity === "no_search") return "none";
+  if (complexity === "single_external_search" || complexity === "kb_first") return "quick";
+  if (complexity === "deep_iterative_research") return "deep";
+  return "standard";
 }
 
 function toProReaderIntent(intent: QueryIntent): ProReaderIntent {
