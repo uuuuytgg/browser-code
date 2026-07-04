@@ -34,9 +34,10 @@ describe("triageProReaderRequest", () => {
     const triage = triageProReaderRequest("help me find Fable5 content");
     const question = buildAmbiguousProReaderQuestion(triage);
 
+    expect(triage.kind).toBe("ambiguous");
     expect(question.options.map((option) => option.label)).toEqual([
-      "Primary meaning",
-      "Alternate meaning",
+      "AI model",
+      "Game",
       "Compare meanings"
     ]);
   });

@@ -1,4 +1,4 @@
-export type ProReaderTriageKind = "existing_url_pipeline" | "proreader" | "normal_agent";
+export type ProReaderTriageKind = "existing_url_pipeline" | "proreader" | "ambiguous" | "normal_agent";
 
 export type ProviderId =
   | "llm_wiki_lite"
@@ -67,6 +67,18 @@ export function triageProReaderRequest(query: string): ProReaderTriage {
     };
   }
 
+  const ambiguity = detectAmbiguity(trimmed);
+  if (ambiguity.length) {
+    return {
+      kind: "ambiguous",
+      query: trimmed,
+      route: defaultAgenticRoute(),
+      options: ambiguity,
+      reason: "The query has several plausible meanings with comparable confidence; ask the user to choose before executing search.",
+      instruction: renderAmbiguousInstruction(trimmed, ambiguity)
+    };
+  }
+
   const route = defaultAgenticRoute();
   return {
     kind: "proreader",
@@ -75,6 +87,16 @@ export function triageProReaderRequest(query: string): ProReaderTriage {
     reason: "Non-URL BrowserCode turns enter ProReader so the agent can make an agentic routing decision.",
     instruction: renderCoreProReaderInstruction(trimmed, route)
   };
+}
+
+function renderAmbiguousInstruction(query: string, options: ProReaderAmbiguityOption[]) {
+  return [
+    "BrowserCode core preflight selected ProReader, but the query is ambiguous.",
+    `Query: ${query}`,
+    "Call the question tool first with the provided options. After the user answers, continue in the same turn by calling proreader for the selected direction.",
+    "Do not call websearch, webfetch, platform MCP search, route-type skills, or task before the user chooses a direction.",
+    `Options: ${options.map((option) => `${option.label}: ${option.description}`).join(" | ")}`
+  ].join("\n");
 }
 
 export function buildAmbiguousProReaderQuestion(triage: ProReaderTriage) {
@@ -188,6 +210,35 @@ function defaultAmbiguityOptions(query: string): ProReaderAmbiguityOption[] {
       providerBias: ["websearch", "github", "wikipedia", "youtube_data_api", "bilibili_mcp"]
     }
   ];
+}
+
+function detectAmbiguity(query: string): ProReaderAmbiguityOption[] {
+  if (/\bfable\s*5?\b/i.test(query)) {
+    return [
+      {
+        id: "model",
+        label: "AI model",
+        description: "Research Fable/Fable 5 as an AI model, release, benchmark, or model ecosystem topic.",
+        query,
+        providerBias: ["websearch", "github", "official_docs", "youtube_data_api", "bilibili_mcp"]
+      },
+      {
+        id: "game",
+        label: "Game",
+        description: "Research Fable as the game franchise or a specific game release/community topic.",
+        query,
+        providerBias: ["websearch", "wikipedia", "youtube_data_api", "bilibili_mcp"]
+      },
+      {
+        id: "compare",
+        label: "Compare meanings",
+        description: "Research the plausible meanings separately, then compare evidence and disambiguate.",
+        query,
+        providerBias: ["websearch", "github", "wikipedia", "youtube_data_api", "bilibili_mcp"]
+      }
+    ];
+  }
+  return [];
 }
 
 function extractExplicitUrl(input: string) {

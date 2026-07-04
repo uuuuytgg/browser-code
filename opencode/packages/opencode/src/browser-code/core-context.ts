@@ -1,4 +1,7 @@
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
+import { buildLlmWikiLiteStateSummary } from "../../../../../packages/research/src/llm-wiki-state"
 import {
   buildAmbiguousProReaderQuestion,
   triageProReaderRequest,
@@ -60,12 +63,15 @@ export function buildBrowserCodeCoreContext(input: {
   const proreaderPlan = parseProReaderOutput(proreaderOutput)
   const phase: BrowserCodePhase = proreaderPlan ? "proreader_execute" : "proreader_preflight"
   const allowed = proreaderPlan ? deriveAllowedTools(proreaderPlan) : undefined
+  const answeredQuestion = findCompletedToolOutputAfterLatestUser(input.messages, input.lastUser, "question")
+  const llmWikiState = buildRuntimeLlmWikiLiteStateSummary()
   const lines = [
     "<browser_code_core_context>",
     `Phase: ${phase}`,
     `Latest non-URL query: ${query}`,
     "Browser Code invariant: every non-URL natural-language research or QA request enters ProReader before route-type skills, websearch, platform search, or task fan-out.",
     "ProReader owns the first agentic intent decision. Inside ProReader, QA prefers KB / LLM Wiki Lite first; code research prefers GitHub / official docs; knowledge research prefers KB / Wikipedia / official docs; platform discovery prefers configured platform providers.",
+    llmWikiState,
   ]
 
   if (phase === "proreader_preflight") {
@@ -73,11 +79,16 @@ export function buildBrowserCodeCoreContext(input: {
       "Available first-step tools are intentionally narrow: call proreader first, or question first only when the query is ambiguous enough to require user disambiguation.",
       "Do not call skill, task, websearch, webfetch, multi-search-engine, aihot, Bilibili, Douyin, Xiaohongshu, GitHub, or Wikipedia tools before ProReader returns a route.",
     )
-    if (triage.options?.length) {
+    if (triage.kind === "ambiguous" && triage.options?.length && !answeredQuestion) {
       const question = buildAmbiguousProReaderQuestion(triage)
       lines.push(
-        "The query appears ambiguous. Ask the user to choose the intended direction before executing external search.",
+        "The query is ambiguous. Call question before proreader and keep the turn alive after the user answers.",
         `Question payload: ${JSON.stringify({ questions: [question] })}`,
+      )
+    } else if (triage.kind === "ambiguous" && answeredQuestion) {
+      lines.push(
+        "The ambiguity question has been answered. Continue in this same turn by calling proreader using the user's selected direction.",
+        `Question result: ${answeredQuestion}`,
       )
     }
   } else {
@@ -198,4 +209,29 @@ function deriveAllowedTools(plan: ProReaderToolOutput) {
 
 function isSearchBackendCandidate(candidate: string) {
   return candidate === "multi_search_engine" || candidate === "multi-search-engine" || candidate === "search"
+}
+
+function buildRuntimeLlmWikiLiteStateSummary() {
+  const cwd = process.cwd()
+  return buildLlmWikiLiteStateSummary({
+    paths: {
+      vault: existsSync(join(cwd, "vault")),
+      kbSources: existsSync(join(cwd, "kb", "sources")),
+      kbClaims: existsSync(join(cwd, "kb", "claims")),
+      kbEntities: existsSync(join(cwd, "kb", "entities")),
+      kbTopics: existsSync(join(cwd, "kb", "topics")),
+      searchHarness: existsSync(join(cwd, "harness", "search.ts")),
+      answerHarness: existsSync(join(cwd, "harness", "make_answer_context.ts")),
+    },
+    policies: {
+      retrieval: readSmallPolicy(join(cwd, "wiki", "RETRIEVAL_POLICY.md")),
+      manager: readSmallPolicy(join(cwd, "wiki", "WIKI_MANAGER.md")),
+      captureWorkflow: readSmallPolicy(join(cwd, "wiki", "CAPTURE_WORKFLOW.md")),
+    },
+  })
+}
+
+function readSmallPolicy(path: string) {
+  if (!existsSync(path)) return undefined
+  return readFileSync(path, "utf8").slice(0, 4_000)
 }

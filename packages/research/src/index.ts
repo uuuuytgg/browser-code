@@ -168,6 +168,24 @@ export type {
   WikipediaSearchQuery
 } from "./wikipedia";
 export {
+  applySaveSelectionDecisions,
+  buildSaveSelectionDraft
+} from "./save-selection";
+export type {
+  SaveSelectionApplyResult,
+  SaveSelectionDecision,
+  SaveSelectionDraft,
+  SaveSelectionInput,
+  SaveSelectionItem,
+  SaveSelectionMode
+} from "./save-selection";
+export {
+  buildLlmWikiLiteStateSummary
+} from "./llm-wiki-state";
+export type {
+  LlmWikiLiteStateInput
+} from "./llm-wiki-state";
+export {
   buildAmbiguousProReaderQuestion,
   resolveAmbiguousProReaderSelection,
   triageProReaderRequest
