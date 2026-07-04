@@ -1,0 +1,122 @@
+import { SessionV1 } from "@opencode-ai/core/v1/session"
+import {
+  buildAmbiguousProReaderQuestion,
+  triageProReaderRequest,
+} from "../../../../../packages/research/src/triage"
+
+export type BrowserCodePhase = "url_pipeline" | "proreader_preflight" | "proreader_execute"
+
+export type BrowserCodeCoreContext = {
+  phase: BrowserCodePhase
+  query?: string
+  explicitUrl: boolean
+  systemPrompt: string
+}
+
+const PREFLIGHT_TOOLS = new Set([
+  "proreader",
+  "question",
+  "invalid",
+])
+
+const MCP_RESOURCE_TOOLS = new Set([
+  "list_mcp_resources",
+  "list_mcp_resource_templates",
+  "read_mcp_resource",
+])
+
+export function buildBrowserCodeCoreContext(input: {
+  lastUser?: SessionV1.WithParts
+  messages: SessionV1.WithParts[]
+}): BrowserCodeCoreContext | undefined {
+  const query = extractText(input.lastUser).trim()
+  if (!query) return undefined
+
+  const triage = triageProReaderRequest(query)
+  if (triage.kind === "existing_url_pipeline") {
+    return {
+      phase: "url_pipeline",
+      query,
+      explicitUrl: true,
+      systemPrompt: [
+        "<browser_code_core_context>",
+        "Phase: url_pipeline",
+        "The latest user input contains an explicit URL. Do not force ProReader.",
+        "Use the existing Browser Code URL/video/page pipeline and its current fetch, transcript, media, and vault tools.",
+        "</browser_code_core_context>",
+      ].join("\n"),
+    }
+  }
+
+  const proreaderCompleted = hasCompletedToolAfterLatestUser(input.messages, input.lastUser, "proreader")
+  const phase: BrowserCodePhase = proreaderCompleted ? "proreader_execute" : "proreader_preflight"
+  const lines = [
+    "<browser_code_core_context>",
+    `Phase: ${phase}`,
+    `Latest non-URL query: ${query}`,
+    "Browser Code invariant: every non-URL natural-language research or QA request enters ProReader before route-type skills, websearch, platform search, or task fan-out.",
+    "ProReader owns the first agentic intent decision. Inside ProReader, QA prefers KB / LLM Wiki Lite first; code research prefers GitHub / official docs; knowledge research prefers KB / Wikipedia / official docs; platform discovery prefers configured platform providers.",
+  ]
+
+  if (phase === "proreader_preflight") {
+    lines.push(
+      "Available first-step tools are intentionally narrow: call proreader first, or question first only when the query is ambiguous enough to require user disambiguation.",
+      "Do not call skill, task, websearch, webfetch, multi-search-engine, aihot, Bilibili, Douyin, Xiaohongshu, GitHub, or Wikipedia tools before ProReader returns a route.",
+    )
+    if (triage.options?.length) {
+      const question = buildAmbiguousProReaderQuestion(triage)
+      lines.push(
+        "The query appears ambiguous. Ask the user to choose the intended direction before executing external search.",
+        `Question payload: ${JSON.stringify({ questions: [question] })}`,
+      )
+    }
+  } else {
+    lines.push(
+      "ProReader has already returned in this session. Execute the returned route/plan with the selected providers and execution backends only.",
+      "Execution backend skills such as multi-search-engine / SQL blooming may be used when the ProReader plan selects websearch. Route-type skills still must not override the ProReader route.",
+    )
+  }
+
+  lines.push("</browser_code_core_context>")
+  return {
+    phase,
+    query,
+    explicitUrl: false,
+    systemPrompt: lines.join("\n"),
+  }
+}
+
+export function allowToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
+  if (!context) return true
+  if (context.phase !== "proreader_preflight") return true
+  return PREFLIGHT_TOOLS.has(toolID)
+}
+
+export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
+  if (!context) return true
+  if (context.phase !== "proreader_preflight") return true
+  if (MCP_RESOURCE_TOOLS.has(toolID)) return false
+  return PREFLIGHT_TOOLS.has(toolID)
+}
+
+function extractText(message?: SessionV1.WithParts) {
+  if (!message) return ""
+  return message.parts
+    .filter((part): part is SessionV1.TextPart => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+}
+
+function hasCompletedToolAfterLatestUser(
+  messages: SessionV1.WithParts[],
+  lastUser: SessionV1.WithParts | undefined,
+  toolID: string,
+) {
+  const start = lastUser ? messages.findIndex((message) => message.info.id === lastUser.info.id) : -1
+  const scopedMessages = start >= 0 ? messages.slice(start) : messages
+  return scopedMessages.some((message) =>
+    message.parts.some(
+      (part) => part.type === "tool" && part.tool === toolID && part.state.status === "completed",
+    ),
+  )
+}

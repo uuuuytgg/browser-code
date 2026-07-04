@@ -60,10 +60,7 @@ import { SessionTable } from "@opencode-ai/core/session/sql"
 import { SessionReminders } from "./reminders"
 import { SessionTools } from "./tools"
 import { LLMEvent } from "@opencode-ai/llm"
-import {
-  buildAmbiguousProReaderQuestion,
-  triageProReaderRequest,
-} from "../../../../../packages/research/src/triage"
+import { buildBrowserCodeCoreContext } from "@/browser-code/core-context"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -657,29 +654,6 @@ export const layer = Layer.effect(
       return yield* provider.defaultModel().pipe(Effect.orDie)
     })
 
-    const browserCodePreflight = Effect.fn("SessionPrompt.browserCodePreflight")(function* (input: PromptInput) {
-      const text = input.parts
-        .filter((part): part is SessionV1.TextPartInput => part.type === "text")
-        .map((part) => part.text)
-        .join("\n")
-        .trim()
-      if (!text) return undefined
-
-      const triage = triageProReaderRequest(text)
-      if (triage.kind === "ambiguous") {
-        const question = buildAmbiguousProReaderQuestion(triage)
-        return [
-          "BrowserCode core preflight detected an ambiguous ProReader research query.",
-          `Original query: ${triage.query}`,
-          "Before using websearch, webfetch, multi-search-engine, platform MCP search, or proreader, call the question tool with exactly this disambiguation prompt.",
-          "After the user answers, continue in the same turn by calling proreader for the selected direction.",
-          `Question payload: ${JSON.stringify({ questions: [question] })}`,
-        ].join("\n")
-      }
-
-      return triage.instruction
-    })
-
     const createUserMessage = Effect.fn("SessionPrompt.createUserMessage")(function* (input: PromptInput) {
       const agentName = input.agent
       const ag = agentName ? yield* agents.get(agentName) : yield* agents.defaultInfo()
@@ -755,8 +729,6 @@ export const layer = Layer.effect(
         ...part,
         id: part.id ? PartID.make(part.id) : PartID.ascending(),
       })
-      const preflightInstruction = yield* browserCodePreflight(input)
-
       const resolvePart: (part: PromptInput["parts"][number]) => Effect.Effect<Draft<SessionV1.Part>[]> = Effect.fn(
         "SessionPrompt.resolveUserPart",
       )(function* (part) {
@@ -1056,15 +1028,6 @@ export const layer = Layer.effect(
       const resolvedParts = yield* Effect.forEach(input.parts, resolvePart, { concurrency: "unbounded" }).pipe(
         Effect.map((x) => {
           const parts = x.flat()
-          if (preflightInstruction) {
-            parts.push({
-              messageID: info.id,
-              sessionID: input.sessionID,
-              type: "text",
-              synthetic: true,
-              text: preflightInstruction,
-            })
-          }
           return parts.map(assign)
         }),
       )
@@ -1363,6 +1326,10 @@ export const layer = Layer.effect(
 
           const outcome: "break" | "continue" = yield* Effect.gen(function* () {
             const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
+            const browserCodeCoreContext = buildBrowserCodeCoreContext({
+              lastUser: lastUserMsg,
+              messages: msgs,
+            })
             const bypassAgentCheck = lastUserMsg?.parts.some((p) => p.type === "agent") ?? false
             const promptOps = yield* ops()
 
@@ -1374,6 +1341,7 @@ export const layer = Layer.effect(
               bypassAgentCheck,
               messages: msgs,
               promptOps,
+              browserCodeCoreContext,
             }).pipe(
               Effect.provideService(Plugin.Service, plugin),
               Effect.provideService(Permission.Service, permission),
@@ -1404,6 +1372,7 @@ export const layer = Layer.effect(
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
             const system = [
+              ...(browserCodeCoreContext ? [browserCodeCoreContext.systemPrompt] : []),
               ...env,
               ...instructions,
               ...(mcpInstructions ? [mcpInstructions] : []),
