@@ -10,6 +10,8 @@ export type BrowserCodeCoreContext = {
   phase: BrowserCodePhase
   query?: string
   explicitUrl: boolean
+  allowedTools?: string[]
+  allowedMcpTools?: string[]
   systemPrompt: string
 }
 
@@ -23,6 +25,12 @@ const MCP_RESOURCE_TOOLS = new Set([
   "list_mcp_resources",
   "list_mcp_resource_templates",
   "read_mcp_resource",
+])
+
+const EXECUTE_BASE_TOOLS = new Set([
+  "invalid",
+  "question",
+  "proreader",
 ])
 
 export function buildBrowserCodeCoreContext(input: {
@@ -48,8 +56,10 @@ export function buildBrowserCodeCoreContext(input: {
     }
   }
 
-  const proreaderCompleted = hasCompletedToolAfterLatestUser(input.messages, input.lastUser, "proreader")
-  const phase: BrowserCodePhase = proreaderCompleted ? "proreader_execute" : "proreader_preflight"
+  const proreaderOutput = findCompletedToolOutputAfterLatestUser(input.messages, input.lastUser, "proreader")
+  const proreaderPlan = parseProReaderOutput(proreaderOutput)
+  const phase: BrowserCodePhase = proreaderPlan ? "proreader_execute" : "proreader_preflight"
+  const allowed = proreaderPlan ? deriveAllowedTools(proreaderPlan) : undefined
   const lines = [
     "<browser_code_core_context>",
     `Phase: ${phase}`,
@@ -75,6 +85,13 @@ export function buildBrowserCodeCoreContext(input: {
       "ProReader has already returned in this session. Execute the returned route/plan with the selected providers and execution backends only.",
       "Execution backend skills such as multi-search-engine / SQL blooming may be used when the ProReader plan selects websearch. Route-type skills still must not override the ProReader route.",
     )
+    if (allowed) {
+      lines.push(`Allowed execution tools for this ProReader plan: ${allowed.tools.join(", ") || "(none)"}.`)
+      if (allowed.mcpTools.length) lines.push(`Allowed MCP provider tools: ${allowed.mcpTools.join(", ")}.`)
+      if (allowed.tools.includes("skill")) {
+        lines.push("The skill tool is allowed only to load execution-backend skills required by the ProReader plan, such as multi-search-engine; do not load route-type skills to change the route.")
+      }
+    }
   }
 
   lines.push("</browser_code_core_context>")
@@ -82,18 +99,26 @@ export function buildBrowserCodeCoreContext(input: {
     phase,
     query,
     explicitUrl: false,
+    allowedTools: allowed?.tools,
+    allowedMcpTools: allowed?.mcpTools,
     systemPrompt: lines.join("\n"),
   }
 }
 
 export function allowToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
+  if (context.phase === "proreader_execute" && context.allowedTools) {
+    return context.allowedTools.includes(toolID)
+  }
   if (context.phase !== "proreader_preflight") return true
   return PREFLIGHT_TOOLS.has(toolID)
 }
 
 export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
+  if (context.phase === "proreader_execute" && context.allowedMcpTools) {
+    return context.allowedMcpTools.includes(toolID)
+  }
   if (context.phase !== "proreader_preflight") return true
   if (MCP_RESOURCE_TOOLS.has(toolID)) return false
   return PREFLIGHT_TOOLS.has(toolID)
@@ -107,16 +132,70 @@ function extractText(message?: SessionV1.WithParts) {
     .join("\n")
 }
 
-function hasCompletedToolAfterLatestUser(
+function findCompletedToolOutputAfterLatestUser(
   messages: SessionV1.WithParts[],
   lastUser: SessionV1.WithParts | undefined,
   toolID: string,
 ) {
   const start = lastUser ? messages.findIndex((message) => message.info.id === lastUser.info.id) : -1
   const scopedMessages = start >= 0 ? messages.slice(start) : messages
-  return scopedMessages.some((message) =>
-    message.parts.some(
-      (part) => part.type === "tool" && part.tool === toolID && part.state.status === "completed",
-    ),
-  )
+  const part = scopedMessages
+    .flatMap((message) => message.parts)
+    .findLast((item) => item.type === "tool" && item.tool === toolID && item.state.status === "completed")
+  return part?.type === "tool" && part.state.status === "completed" ? part.state.output : undefined
+}
+
+type ProReaderToolOutput = {
+  executablePlan?: {
+    actions?: Array<{
+      kind?: string
+      tool?: string
+      toolCandidates?: string[]
+      toolName?: string
+    }>
+  }
+}
+
+function parseProReaderOutput(output: string | undefined): ProReaderToolOutput | undefined {
+  if (!output) return undefined
+  try {
+    const parsed = JSON.parse(output) as ProReaderToolOutput
+    return Array.isArray(parsed.executablePlan?.actions) ? parsed : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function deriveAllowedTools(plan: ProReaderToolOutput) {
+  const tools = new Set(EXECUTE_BASE_TOOLS)
+  const mcpTools = new Set<string>()
+
+  for (const action of plan.executablePlan?.actions ?? []) {
+    if (action.kind === "agent_tool" && action.tool) {
+      tools.add(action.tool)
+      for (const candidate of action.toolCandidates ?? []) tools.add(candidate)
+      if (action.tool === "websearch" || action.toolCandidates?.some(isSearchBackendCandidate)) {
+        tools.add("skill")
+      }
+      continue
+    }
+
+    if (action.kind === "mcp_tool" && action.toolName) {
+      mcpTools.add(action.toolName)
+      continue
+    }
+
+    if (action.kind === "shell_command" || action.kind === "harness_command" || action.kind === "api_request") {
+      tools.add("bash")
+    }
+  }
+
+  return {
+    tools: Array.from(tools).sort(),
+    mcpTools: Array.from(mcpTools).sort(),
+  }
+}
+
+function isSearchBackendCandidate(candidate: string) {
+  return candidate === "multi_search_engine" || candidate === "multi-search-engine" || candidate === "search"
 }
