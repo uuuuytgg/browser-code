@@ -159,6 +159,44 @@ describe("BrowserCode core context enhanced research gate", () => {
     expect(allowMcpInstructionForBrowserCodeCoreContext({ tools: ["socialdatax-douyin_search"] }, context)).toBe(false)
   })
 
+  it("opens dynamic deferred provider tools after ProReader without rewriting the route", () => {
+    const lastUser = userMessage("u1", "帮我研究一个模糊主题")
+    const context = buildBrowserCodeCoreContext({
+      lastUser,
+      messages: [
+        lastUser,
+        assistantWithTool(
+          "proreader",
+          JSON.stringify({
+            decision: { executionProfile: "normal", workflowPolicy: "disabled" },
+            executablePlan: {
+              actions: [{ kind: "agent_tool", tool: "webfetch" }],
+            },
+            dynamicToolExposure: {
+              policy: ["This is a dynamic execution surface, not a rewritten intent decision."],
+              allowedAgentTools: ["websearch", "bash"],
+              allowedExecutionBackendSkills: ["multi-search-engine"],
+              allowedMcpTools: ["bili_search", "search_notes"],
+              providerRegistry: [
+                { provider: "websearch", status: "ready", mode: "builtin" },
+                { provider: "bilibili_mcp", status: "ready", mode: "mcp" },
+              ],
+            },
+          }),
+        ),
+      ],
+    })
+
+    expect(context?.phase).toBe("proreader_execute")
+    expect(context?.systemPrompt).toContain("Dynamic deferred tool exposure is active after ProReader")
+    expect(context?.systemPrompt).toContain("Provider registry: websearch:ready/builtin, bilibili_mcp:ready/mcp.")
+    expect(allowToolForBrowserCodeCoreContext("websearch", context)).toBe(true)
+    expect(allowToolForBrowserCodeCoreContext("bash", context)).toBe(true)
+    expect(allowSkillInstructionForBrowserCodeCoreContext("multi-search-engine", context)).toBe(true)
+    expect(allowMcpToolForBrowserCodeCoreContext("bilibili-readonly_bili_search", context)).toBe(true)
+    expect(allowMcpToolForBrowserCodeCoreContext("xhs-local_search_notes", context)).toBe(true)
+  })
+
   it("hides all skill instructions when a ProReader plan does not need a skill backend", () => {
     const lastUser = userMessage("u1", "MCP workflow research")
     const context = buildBrowserCodeCoreContext({

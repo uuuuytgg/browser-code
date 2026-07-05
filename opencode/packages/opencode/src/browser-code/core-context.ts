@@ -100,6 +100,7 @@ export function buildBrowserCodeCoreContext(input: {
     `Latest non-URL query: ${query}`,
     "Browser Code invariant: every non-URL natural-language research or QA request enters ProReader before route-type skills, websearch, platform search, or task fan-out.",
     "ProReader owns the first agentic intent decision. Inside ProReader, QA prefers KB / LLM Wiki Lite first; code research prefers GitHub / official docs; knowledge research prefers KB / Wikipedia / official docs; platform discovery prefers configured platform providers.",
+    "Provider tendencies are not mutually exclusive gates. When multiple providers can add independent evidence, combine them; websearch / multi-search-engine is a companion discovery backend, not a replacement for KB, GitHub, Wikipedia, official docs, or platform providers.",
     llmWikiState,
   ]
 
@@ -138,6 +139,16 @@ export function buildBrowserCodeCoreContext(input: {
           "Subagents must not change the ProReader route, must not write vault/kb/sqlite, and must return structured evidence/candidates/uncertainty/source_notes for main-agent synthesis.",
           "Subagent output is not final: source_reviewer and synthesis_reviewer checks must be reflected before answering or saving.",
         )
+      }
+    }
+    if (proreaderPlan.dynamicToolExposure) {
+      lines.push("Dynamic deferred tool exposure is active after ProReader. This is an execution surface for model choice, not a rewritten intent decision.")
+      for (const policy of proreaderPlan.dynamicToolExposure.policy ?? []) {
+        lines.push(`Deferred tool policy: ${policy}`)
+      }
+      const registry = proreaderPlan.dynamicToolExposure.providerRegistry ?? []
+      if (registry.length) {
+        lines.push(`Provider registry: ${registry.map((item) => `${item.provider}:${item.status}/${item.mode}`).join(", ")}.`)
       }
     }
   }
@@ -239,6 +250,17 @@ type ProReaderToolOutput = {
       toolName?: string
     }>
   }
+  dynamicToolExposure?: {
+    policy?: string[]
+    allowedAgentTools?: string[]
+    allowedExecutionBackendSkills?: string[]
+    allowedMcpTools?: string[]
+    providerRegistry?: Array<{
+      provider?: string
+      mode?: string
+      status?: string
+    }>
+  }
 }
 
 function parseProReaderOutput(output: string | undefined): ProReaderToolOutput | undefined {
@@ -279,6 +301,25 @@ function deriveAllowedTools(plan: ProReaderToolOutput) {
     if (action.kind === "shell_command" || action.kind === "harness_command" || action.kind === "api_request") {
       tools.add("bash")
     }
+  }
+
+  for (const tool of plan.dynamicToolExposure?.allowedAgentTools ?? []) {
+    tools.add(tool)
+    if (tool === "websearch") {
+      tools.add("skill")
+      skillNames.add("multi-search-engine")
+    }
+  }
+
+  for (const skillName of plan.dynamicToolExposure?.allowedExecutionBackendSkills ?? []) {
+    if (EXECUTION_BACKEND_SKILLS.has(skillName)) {
+      tools.add("skill")
+      skillNames.add(skillName)
+    }
+  }
+
+  for (const toolName of plan.dynamicToolExposure?.allowedMcpTools ?? []) {
+    mcpTools.add(toolName)
   }
 
   if (enhancedResearch) tools.add("task")
