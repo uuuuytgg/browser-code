@@ -36,6 +36,7 @@ function proreaderOutput(executionProfile: "normal" | "enhanced_research") {
     decision: {
       executionProfile,
       workflowPolicy: executionProfile === "enhanced_research" ? "explicit_opt_in" : "disabled",
+      saveMode: "single_report",
       subagentPlan: executionProfile === "enhanced_research" ? { reviewRequired: true } : undefined,
     },
     executablePlan: {
@@ -48,6 +49,10 @@ function proreaderOutput(executionProfile: "normal" | "enhanced_research") {
       ],
     },
   })
+}
+
+function questionOutput(answer: string) {
+  return `User has answered your questions: "是否保存这篇报告？"="${answer}". You can now continue with the user's answers in mind.`
 }
 
 function malformedEnhancedOutput() {
@@ -115,10 +120,47 @@ describe("BrowserCode core context enhanced research gate", () => {
     expect(context?.allowedTools).toContain("skill")
     expect(context?.allowedTools).not.toContain("task")
     expect(allowToolForBrowserCodeCoreContext("task", context)).toBe(false)
+    expect(allowToolForBrowserCodeCoreContext("write", context)).toBe(false)
     expect(allowSkillInstructionForBrowserCodeCoreContext("multi-search-engine", context)).toBe(true)
     expect(allowSkillExecutionForBrowserCodeCoreContext("multi-search-engine", context)).toBe(true)
     expect(allowSkillInstructionForBrowserCodeCoreContext("aihot", context)).toBe(false)
     expect(allowSkillExecutionForBrowserCodeCoreContext("aihot", context)).toBe(false)
+  })
+
+  it("opens scoped file writes after a confirmed ProReader save question", () => {
+    const lastUser = userMessage("u1", "帮我研究 GPT-5.6 并保存")
+    const context = buildBrowserCodeCoreContext({
+      lastUser,
+      messages: [
+        lastUser,
+        assistantWithTool("proreader", proreaderOutput("normal")),
+        assistantWithTool("question", questionOutput("同意保存")),
+      ],
+    })
+
+    expect(context?.phase).toBe("proreader_save_confirmed")
+    expect(context?.systemPrompt).toContain("The user has confirmed the ProReader save/review question")
+    expect(allowToolForBrowserCodeCoreContext("write", context)).toBe(true)
+    expect(allowToolForBrowserCodeCoreContext("edit", context)).toBe(true)
+    expect(allowToolForBrowserCodeCoreContext("task", context)).toBe(false)
+    expect(allowSkillInstructionForBrowserCodeCoreContext("aihot", context)).toBe(false)
+    expect(allowMcpToolForBrowserCodeCoreContext("socialdatax-douyin_search", context)).toBe(false)
+  })
+
+  it("does not treat a rejected save question as write approval", () => {
+    const lastUser = userMessage("u1", "帮我研究 GPT-5.6 并保存")
+    const context = buildBrowserCodeCoreContext({
+      lastUser,
+      messages: [
+        lastUser,
+        assistantWithTool("proreader", proreaderOutput("normal")),
+        assistantWithTool("question", questionOutput("否")),
+      ],
+    })
+
+    expect(context?.phase).toBe("proreader_execute")
+    expect(allowToolForBrowserCodeCoreContext("write", context)).toBe(false)
+    expect(allowToolForBrowserCodeCoreContext("edit", context)).toBe(false)
   })
 
   it("parses fenced ProReader JSON before opening execution tools", () => {

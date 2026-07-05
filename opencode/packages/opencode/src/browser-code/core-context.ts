@@ -7,7 +7,12 @@ import {
   triageProReaderRequest,
 } from "../../../../../packages/research/src/triage"
 
-export type BrowserCodePhase = "url_pipeline" | "explicit_skill_direct" | "proreader_preflight" | "proreader_execute"
+export type BrowserCodePhase =
+  | "url_pipeline"
+  | "explicit_skill_direct"
+  | "proreader_preflight"
+  | "proreader_execute"
+  | "proreader_save_confirmed"
 
 export type BrowserCodeCoreContext = {
   phase: BrowserCodePhase
@@ -35,6 +40,11 @@ const EXECUTE_BASE_TOOLS = new Set([
   "invalid",
   "question",
   "proreader",
+])
+
+const PROREADER_SAVE_TOOLS = new Set([
+  "edit",
+  "write",
 ])
 
 const EXECUTION_BACKEND_SKILLS = new Set([
@@ -88,10 +98,25 @@ export function buildBrowserCodeCoreContext(input: {
     }
   }
 
-  const proreaderOutput = findCompletedToolOutputAfterLatestUser(input.messages, input.lastUser, "proreader")
+  const proreaderMatch = findCompletedToolOutputAfterLatestUser(input.messages, input.lastUser, "proreader")
+  const proreaderOutput = proreaderMatch?.output
   const proreaderPlan = parseProReaderOutput(proreaderOutput)
-  const phase: BrowserCodePhase = proreaderPlan ? "proreader_execute" : "proreader_preflight"
+  const saveApprovalOutput = proreaderPlan && proreaderMatch
+    ? findCompletedToolOutputAfterMessage(input.messages, proreaderMatch.messageID, "question")?.output
+    : undefined
+  const saveConfirmed = proreaderPlan ? hasConfirmedSaveApproval(proreaderPlan, saveApprovalOutput) : false
+  const phase: BrowserCodePhase = proreaderPlan
+    ? saveConfirmed
+      ? "proreader_save_confirmed"
+      : "proreader_execute"
+    : "proreader_preflight"
   const allowed = proreaderPlan ? deriveAllowedTools(proreaderPlan) : undefined
+  const allowedTools = allowed
+    ? Array.from(new Set([
+      ...allowed.tools,
+      ...(saveConfirmed ? Array.from(PROREADER_SAVE_TOOLS) : []),
+    ])).sort()
+    : undefined
   const answeredQuestion = findCompletedToolOutputAfterLatestUser(input.messages, input.lastUser, "question")
   const llmWikiState = buildRuntimeLlmWikiLiteStateSummary()
   const lines = [
@@ -122,12 +147,13 @@ export function buildBrowserCodeCoreContext(input: {
       )
     }
   } else {
+    const plan = proreaderPlan!
     lines.push(
       "ProReader has already returned in this session. Execute the returned route/plan with the selected providers and execution backends only.",
       "Execution backend skills such as multi-search-engine / SQL blooming may be used when the ProReader plan selects websearch. Route-type skills still must not override the ProReader route.",
     )
     if (allowed) {
-      lines.push(`Allowed execution tools for this ProReader plan: ${allowed.tools.join(", ") || "(none)"}.`)
+      lines.push(`Allowed execution tools for this ProReader plan: ${(allowedTools ?? allowed.tools).join(", ") || "(none)"}.`)
       if (allowed.mcpTools.length) lines.push(`Allowed MCP provider tools: ${allowed.mcpTools.join(", ")}.`)
       if (allowed.tools.includes("skill")) {
         lines.push(`Allowed execution-backend skills: ${allowed.skillNames.join(", ") || "(none)"}.`)
@@ -141,12 +167,18 @@ export function buildBrowserCodeCoreContext(input: {
         )
       }
     }
-    if (proreaderPlan.dynamicToolExposure) {
+    if (phase === "proreader_save_confirmed") {
+      lines.push(
+        "The user has confirmed the ProReader save/review question after the ProReader plan.",
+        "Vault/KB writes are now allowed only for the confirmed ProReader save target. Keep writes scoped to the selected report/candidates and do not perform unrelated code edits.",
+      )
+    }
+    if (plan.dynamicToolExposure) {
       lines.push("Dynamic deferred tool exposure is active after ProReader. This is an execution surface for model choice, not a rewritten intent decision.")
-      for (const policy of proreaderPlan.dynamicToolExposure.policy ?? []) {
+      for (const policy of plan.dynamicToolExposure.policy ?? []) {
         lines.push(`Deferred tool policy: ${policy}`)
       }
-      const registry = proreaderPlan.dynamicToolExposure.providerRegistry ?? []
+      const registry = plan.dynamicToolExposure.providerRegistry ?? []
       if (registry.length) {
         lines.push(`Provider registry: ${registry.map((item) => `${item.provider}:${item.status}/${item.mode}`).join(", ")}.`)
       }
@@ -158,7 +190,7 @@ export function buildBrowserCodeCoreContext(input: {
     phase,
     query,
     explicitUrl: false,
-    allowedTools: allowed?.tools,
+    allowedTools,
     allowedMcpTools: allowed?.mcpTools,
     allowedSkillNames: allowed?.skillNames,
     systemPrompt: lines.join("\n"),
@@ -167,7 +199,8 @@ export function buildBrowserCodeCoreContext(input: {
 
 export function allowToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
-  if (context.phase === "proreader_execute" && context.allowedTools) {
+  if (context.phase === "proreader_save_confirmed" && PROREADER_SAVE_TOOLS.has(toolID)) return true
+  if ((context.phase === "proreader_execute" || context.phase === "proreader_save_confirmed") && context.allowedTools) {
     return context.allowedTools.includes(toolID)
   }
   if (context.phase === "explicit_skill_direct" && context.allowedTools) {
@@ -179,7 +212,7 @@ export function allowToolForBrowserCodeCoreContext(toolID: string, context?: Bro
 
 export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
-  if (context.phase === "proreader_execute" && context.allowedMcpTools) {
+  if ((context.phase === "proreader_execute" || context.phase === "proreader_save_confirmed") && context.allowedMcpTools) {
     return isAllowedMcpTool(toolID, context.allowedMcpTools)
   }
   if (context.phase === "explicit_skill_direct") return false
@@ -192,7 +225,7 @@ export function allowSkillInstructionForBrowserCodeCoreContext(skillName: string
   if (!context) return true
   if (context.phase === "explicit_skill_direct") return context.allowedSkillNames?.includes(skillName) ?? false
   if (context.phase === "proreader_preflight") return false
-  if (context.phase !== "proreader_execute") return true
+  if (context.phase !== "proreader_execute" && context.phase !== "proreader_save_confirmed") return true
   if (!context.allowedTools?.includes("skill")) return false
   return isAllowedExecutionBackendSkill(skillName, context)
 }
@@ -208,7 +241,7 @@ export function allowMcpInstructionForBrowserCodeCoreContext(
   if (!context) return true
   if (context.phase === "explicit_skill_direct") return false
   if (context.phase === "proreader_preflight") return false
-  if (context.phase !== "proreader_execute") return true
+  if (context.phase !== "proreader_execute" && context.phase !== "proreader_save_confirmed") return true
   if (!context.allowedMcpTools?.length) return false
   return instruction.tools.some((tool) => isAllowedMcpTool(tool, context.allowedMcpTools ?? []))
 }
@@ -228,16 +261,35 @@ function findCompletedToolOutputAfterLatestUser(
 ) {
   const start = lastUser ? messages.findIndex((message) => message.info.id === lastUser.info.id) : -1
   const scopedMessages = start >= 0 ? messages.slice(start) : messages
-  const part = scopedMessages
-    .flatMap((message) => message.parts)
-    .findLast((item) => item.type === "tool" && item.tool === toolID && item.state.status === "completed")
-  return part?.type === "tool" && part.state.status === "completed" ? part.state.output : undefined
+  return findCompletedToolOutput(scopedMessages, toolID)
+}
+
+function findCompletedToolOutputAfterMessage(
+  messages: SessionV1.WithParts[],
+  messageID: string,
+  toolID: string,
+) {
+  const start = messages.findIndex((message) => message.info.id === messageID)
+  const scopedMessages = start >= 0 ? messages.slice(start + 1) : messages
+  return findCompletedToolOutput(scopedMessages, toolID)
+}
+
+function findCompletedToolOutput(messages: SessionV1.WithParts[], toolID: string) {
+  for (const message of messages.toReversed()) {
+    const part = message.parts
+      .findLast((item) => item.type === "tool" && item.tool === toolID && item.state.status === "completed")
+    if (part?.type === "tool" && part.state.status === "completed") {
+      return { messageID: message.info.id, output: part.state.output }
+    }
+  }
+  return undefined
 }
 
 type ProReaderToolOutput = {
   decision?: {
     executionProfile?: string
     workflowPolicy?: string
+    saveMode?: string
     subagentPlan?: {
       reviewRequired?: boolean
     }
@@ -261,6 +313,17 @@ type ProReaderToolOutput = {
       status?: string
     }>
   }
+}
+
+function hasConfirmedSaveApproval(plan: ProReaderToolOutput, output: string | undefined) {
+  const saveMode = plan.decision?.saveMode
+  if (!output || !saveMode || saveMode === "none") return false
+  const answers = Array.from(output.matchAll(/"[^"]*"\s*=\s*"([^"]*)"/g))
+    .map((match) => match[1] ?? "")
+    .filter(Boolean)
+  const text = answers.length ? answers.join("\n") : output
+  if (/不同意|不允许|取消|不要|不保存|否|no|nope|reject|decline/i.test(text)) return false
+  return /同意|允许|确认|确定|保存|写入|入库|是|yes|yep|ok|okay|approve|approved|confirm|confirmed|save/i.test(text)
 }
 
 function parseProReaderOutput(output: string | undefined): ProReaderToolOutput | undefined {
