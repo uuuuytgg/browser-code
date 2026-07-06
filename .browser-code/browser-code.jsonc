@@ -64,4 +64,19 @@
       "enabled": false,
     },
   },
+  // Override model context limit so 1M models aren't incorrectly
+  // squeezed by the API-returned max_context_window_tokens.
+  // The usable() threshold in overflow.ts subtracts buffer + output from this.
+  "provider": {
+    "deepseek": {
+      "models": {
+        "deepseek-v4-flash": {
+          "limit": {
+            "context": 1000000,
+            "output": 32768
+          }
+        }
+      }
+    }
+  }
 }
