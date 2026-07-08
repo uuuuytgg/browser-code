@@ -63,6 +63,12 @@
       "cwd": ".",
       "enabled": false,
     },
+    "chrome-devtools": {
+      "type": "local",
+      "command": ["npx", "-y", "chrome-devtools-mcp"],
+      "cwd": ".",
+      "enabled": true,
+    },
   },
   // Override model context limit so 1M models aren't incorrectly
   // squeezed by the API-returned max_context_window_tokens.
