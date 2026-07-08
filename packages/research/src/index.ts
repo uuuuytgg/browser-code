@@ -113,16 +113,22 @@ export type {
 export {
   assertProviderExecutionIsSideEffectSafe,
   buildProviderExecutionRequests,
+  buildStepGuardInstructions,
+  classifyFailure,
   executeProviderRequest,
-  runProviderExecutionDryRun
+  getStepTimeout,
+  runProviderExecutionDryRun,
+  STEP_GUARD,
 } from "./provider-executor";
 export type {
+  FailureReason,
+  ProReaderFailure,
   ProviderExecutionAdapter,
   ProviderExecutionAdapters,
   ProviderExecutionKind,
   ProviderExecutionPolicy,
   ProviderExecutionRequest,
-  ProviderExecutionResult
+  ProviderExecutionResult,
 } from "./provider-executor";
 export {
   buildProviderExecutableActions,

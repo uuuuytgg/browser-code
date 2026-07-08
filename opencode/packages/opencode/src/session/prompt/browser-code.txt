@@ -20,7 +20,7 @@ Before acting, classify what the user wants and pick the right pipeline. Common 
 - **Scan page resources**: user wants the page's images/scripts/fonts/media enumerated.
   Pipeline: `webfetch` → `web_to_markdown` (it returns a resource list) or `bash` grep the HTML for `<img>/<script>/<link>/<video>` → report.
 - **Save selection**: user provides selected text → just write it as a snippet note into `vault/snippets/` with source URL.
-- **Search vault**: user wants to find notes already saved → primary: `kb_manage` action="search", fallback: `search_vault`. Use `read` to open matched notes.
+- **Search vault**: user wants to find notes already saved → primary: `bash` run `bun run kb:search "query"`, fallback: `search_vault`. Use `read` to open matched notes.
 
 When the intent is ambiguous, ask one short clarifying question with the `question` tool. Don't guess between "save article" vs "save design" — they produce very different notes.
 
@@ -79,4 +79,22 @@ Prioritize accuracy over validating the user's beliefs. If a page can't be clean
 When referencing vault files or source, use `path:line` so the user can navigate.
 
 # Task tracking
-Use TodoWrite to plan multi-step captures (e.g. fetch → convert → localize images → save_markdown_note → kb_manage after_capture). Mark items completed as soon as they're done, not in batches.
+Use TodoWrite to plan multi-step captures (e.g. fetch → convert → localize images → save_markdown_note → write kb/sources + kb/claims → bash kb:after-capture). Mark items completed as soon as they're done, not in batches.
+
+# Rescue lane
+When ProReader step execution fails (timeout, jsdom empty shell, Cloudflare block, rate limit):
+1. Collect failed steps into a failures[] array matching the schema in ProReader's rescueLane output.
+2. Call the `rescue` tool with those failures.
+3. The rescue tool returns a plan: which failures can be rescued via Chrome DevTools (CDP), which should be skipped, which are uncertain.
+4. Execute rescue plans in sequence using mcp__chrome-devtools__* tools. Each rescue plan has 4 steps: new_page → wait_for → take_snapshot → close_page.
+5. After each successful CDP scrape, save content with save_markdown_note (source_url = the original URL).
+6. After all rescues, run the KB pipeline (write kb/sources + kb/claims + bash kb:after-capture) for each rescued note.
+7. Guard rails: max 10 rescue items, ~60s per CDP session, total loop under 5 minutes. If a CDP step fails, skip it and move on.
+
+# Local file ingestion
+When the user gives you a non-web file (PDF, image, DOCX, local Markdown):
+1. Use the `read` tool to extract content (LLM vision handles PDF/images; plain text for .md).
+2. Use `ocr_text` for image-heavy text extraction when available.
+3. Organize extracted content into clean Markdown.
+4. Save with save_markdown_note using the LOCAL shortcut: omit source_url (or use file:// path), provide title + content + content_type. The tool will use local:// hash dedup and title-based naming.
+5. After saving, run the standard KB pipeline (write kb/sources + kb/claims + bash kb:after-capture).
