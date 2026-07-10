@@ -926,3 +926,11 @@ export {
   type ProReaderTaskState,
   PROREADER_DEPENDENCIES,
 } from "./protocol"
+
+export {
+  type ValidationResult,
+  type ValidationIssue,
+  validateKbPipeline,
+  parsePipelineStatus,
+  VALIDATION_CODES,
+} from "./validator"
