@@ -423,3 +423,300 @@ function handleLinkEntity(args: LinkEntityArgs): {
   writeFileSync(filePath, updatedContent, "utf8")
   return { filePath: `kb/entities/${filename}`, created: false, updated: true }
 }
+
+/**
+ * 执行 KB 管线：enqueue → process-queue → rebuild FTS5
+ * 内部调用 `bun run kb:after-capture`，透传 stdout/stderr。
+ * 执行完毕后运行 Validator。
+ */
+async function handleAfterCapture(vaultPath: string): Promise<{
+  pipeline: {
+    enqueued: boolean
+    step: number
+    status: string
+    output: string
+    errors: string[]
+  }
+  validation: {
+    passed: boolean
+    hardBlocks: Array<{ code: string; message: string; detail: string }>
+    softWarnings: Array<{ code: string; message: string; detail: string }>
+  }
+}> {
+  // 1. enqueue
+  const enqueueResult = await execCommand("bun", [
+    "run", "harness/enqueue.ts", vaultPath,
+  ])
+
+  // 2. process-queue（可能多次执行直到 stable）
+  let processOutput = ""
+  let lastOutput = ""
+  let attempts = 0
+  const maxAttempts = 5
+
+  do {
+    lastOutput = processOutput
+    const result = await execCommand("bun", [
+      "run", "harness/process-queue.ts",
+    ])
+    processOutput = result.stdout + result.stderr
+    attempts++
+  } while (processOutput !== lastOutput && attempts < maxAttempts)
+
+  // 3. 解析管线状态
+  const pipelineStatus = parsePipelineStatus(processOutput)
+
+  // 4. 运行 Validator
+  const validation = validateKbPipeline(pipelineStatus)
+
+  return {
+    pipeline: {
+      enqueued: enqueueResult.exitCode === 0,
+      step: pipelineStatus.step,
+      status: pipelineStatus.status,
+      output: processOutput.slice(0, 2000),
+      errors: pipelineStatus.errors.slice(0, 10),
+    },
+    validation: {
+      passed: validation.passed,
+      hardBlocks: validation.hardBlocks,
+      softWarnings: validation.softWarnings,
+    },
+  }
+}
+
+/**
+ * FTS5 搜索 kb/claims + kb/topics + kb/entities + kb/sources
+ */
+async function handleSearch(query: string): Promise<{
+  results: string
+  resultCount: number
+}> {
+  const result = await execCommand("bun", [
+    "run", "harness/search.ts", query,
+  ])
+  const lines = result.stdout.split("\n").filter((l) => l.trim())
+  return {
+    results: result.stdout.slice(0, 3000),
+    resultCount: lines.length,
+  }
+}
+
+/**
+ * 生成结构化回答上下文
+ */
+async function handleContext(query: string): Promise<{
+  outputPath: string
+  output: string
+}> {
+  const result = await execCommand("bun", [
+    "run", "harness/make_answer_context.ts", query,
+  ])
+
+  const contextPath = join(process.cwd(), ".tmp", "answer_context.md")
+  let contextContent = ""
+  if (existsSync(contextPath)) {
+    contextContent = readFileSync(contextPath, "utf8").slice(0, 5000)
+  }
+
+  return {
+    outputPath: ".tmp/answer_context.md",
+    output: contextContent || result.stdout.slice(0, 3000),
+  }
+}
+
+// ── 完整 Tool Definition ──
+
+const kbManageTool: ToolDefinition = tool({
+  description: `Knowledge base manager. Full pipeline: write → index → search.
+
+## Actions
+
+### Write side
+- **save_source**: Create kb/sources/{date}-{slug}.md with standard template.
+  Params: title, source_url, source_type (webpage|video|transcript|document|manual),
+          summary, key_points[], details?, related_topics[]?, vault_path
+- **save_claims**: Create kb/claims/{name}.claims.md with standard claim format.
+  Params: source_file ("kb/sources/xxx.md"), claims[{type, text}]
+  Claim types: definition, mechanism, constraint, comparison, conclusion, open-question, warning, procedure
+- **link_topic**: Create or update kb/topics/{slug}.md. New topics created from template;
+  existing topics updated via managed-block regions.
+  Params: topic_name, topic_name_zh?, definition?, related_claims[]?, related_sources[]?, related_entities[]?
+- **link_entity**: Create or update kb/entities/{slug}.md.
+  Params: entity_name, entity_type (tool|project|concept|framework|person|organization),
+          description?, related_topics[]?, related_claims[]?, related_sources[]?, aliases[]?
+
+### Pipeline side
+- **after_capture**: Enqueue → process-queue → rebuild FTS5 index.
+  Params: vault_path ("vault/articles/xxx.md")
+  Returns validation result (hard blocks + soft warnings).
+
+### Read side
+- **search**: FTS5 search across kb/claims(w3)+topics(w2)+entities(w1)+sources(w0).
+  Params: query
+- **context**: Generate structured answer context (Claims→Topics→Entities→Sources).
+  Params: query
+
+Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
+  args: {
+    action: tool.schema
+      .enum([
+        "save_source", "save_claims", "link_topic", "link_entity",
+        "after_capture", "search", "context",
+      ])
+      .describe("KB action to execute."),
+
+    title: tool.schema.string().optional()
+      .describe("(save_source) Source title."),
+    source_url: tool.schema.string().optional()
+      .describe("(save_source) Original source URL."),
+    source_type: tool.schema
+      .enum(["webpage", "video", "transcript", "document", "manual"])
+      .optional()
+      .describe("(save_source) Source type."),
+    summary: tool.schema.string().optional()
+      .describe("(save_source) One-paragraph summary (max ~200 chars)."),
+    key_points: tool.schema.array(tool.schema.string()).optional()
+      .describe("(save_source) Key points list."),
+    details: tool.schema.string().optional()
+      .describe("(save_source) Detailed content (optional)."),
+    related_topics: tool.schema.array(tool.schema.string()).optional()
+      .describe("(save_source / link_topic / link_entity) Related topic slugs."),
+    vault_path: tool.schema.string().optional()
+      .describe("(save_source / after_capture) Vault note path, e.g. vault/articles/xxx.md."),
+
+    source_file: tool.schema.string().optional()
+      .describe("(save_claims) Path to kb/sources file, e.g. kb/sources/2026-07-10-title.md."),
+    claims: tool.schema
+      .array(tool.schema.object({
+        type: tool.schema.enum([
+          "definition", "mechanism", "constraint", "comparison",
+          "conclusion", "open-question", "warning", "procedure",
+        ]),
+        text: tool.schema.string(),
+      }))
+      .optional()
+      .describe("(save_claims) Array of {type, text} claim objects."),
+
+    topic_name: tool.schema.string().optional()
+      .describe("(link_topic) Topic name in English."),
+    topic_name_zh: tool.schema.string().optional()
+      .describe("(link_topic) Topic name in Chinese."),
+    definition: tool.schema.string().optional()
+      .describe("(link_topic) Topic definition (for new topics)."),
+
+    entity_name: tool.schema.string().optional()
+      .describe("(link_entity) Entity name."),
+    entity_type: tool.schema
+      .enum(["tool", "project", "concept", "framework", "person", "organization"])
+      .optional()
+      .describe("(link_entity) Entity type."),
+    description: tool.schema.string().optional()
+      .describe("(link_entity) Entity description."),
+    aliases: tool.schema.array(tool.schema.string()).optional()
+      .describe("(link_entity) Alternative names."),
+
+    related_claims: tool.schema.array(tool.schema.string()).optional()
+      .describe("(link_topic / link_entity) Related claim paths, e.g. kb/claims/xxx.claims."),
+    related_sources: tool.schema.array(tool.schema.string()).optional()
+      .describe("(link_topic / link_entity) Related source paths, e.g. kb/sources/xxx."),
+    related_entities: tool.schema.array(tool.schema.string()).optional()
+      .describe("(link_topic) Related entity paths, e.g. kb/entities/xxx."),
+
+    query: tool.schema.string().optional()
+      .describe("(search / context) Search query string."),
+  },
+  async execute(args) {
+    const action = args.action as string
+
+    switch (action) {
+      case "save_source": {
+        if (!args.title || !args.source_url || !args.source_type || !args.summary || !args.key_points || !args.vault_path) {
+          throw new Error("save_source requires: title, source_url, source_type, summary, key_points, vault_path")
+        }
+        const result = handleSaveSource({
+          title: args.title as string,
+          source_url: args.source_url as string,
+          source_type: args.source_type as SourceType,
+          summary: args.summary as string,
+          key_points: args.key_points as string[],
+          details: args.details as string | undefined,
+          related_topics: args.related_topics as string[] | undefined,
+          vault_path: args.vault_path as string,
+        })
+        return JSON.stringify(result, null, 2)
+      }
+
+      case "save_claims": {
+        if (!args.source_file || !args.claims) {
+          throw new Error("save_claims requires: source_file, claims")
+        }
+        const result = handleSaveClaims({
+          source_file: args.source_file as string,
+          claims: args.claims as Array<{ type: ClaimType; text: string }>,
+        })
+        return JSON.stringify(result, null, 2)
+      }
+
+      case "link_topic": {
+        if (!args.topic_name) {
+          throw new Error("link_topic requires: topic_name")
+        }
+        const result = handleLinkTopic({
+          topic_name: args.topic_name as string,
+          topic_name_zh: args.topic_name_zh as string | undefined,
+          definition: args.definition as string | undefined,
+          related_claims: args.related_claims as string[] | undefined,
+          related_sources: args.related_sources as string[] | undefined,
+          related_entities: args.related_entities as string[] | undefined,
+        })
+        return JSON.stringify(result, null, 2)
+      }
+
+      case "link_entity": {
+        if (!args.entity_name || !args.entity_type) {
+          throw new Error("link_entity requires: entity_name, entity_type")
+        }
+        const result = handleLinkEntity({
+          entity_name: args.entity_name as string,
+          entity_type: args.entity_type as EntityType,
+          description: args.description as string | undefined,
+          related_topics: args.related_topics as string[] | undefined,
+          related_claims: args.related_claims as string[] | undefined,
+          related_sources: args.related_sources as string[] | undefined,
+          aliases: args.aliases as string[] | undefined,
+        })
+        return JSON.stringify(result, null, 2)
+      }
+
+      case "after_capture": {
+        if (!args.vault_path) {
+          throw new Error("after_capture requires: vault_path")
+        }
+        const result = await handleAfterCapture(args.vault_path as string)
+        return JSON.stringify(result, null, 2)
+      }
+
+      case "search": {
+        if (!args.query) {
+          throw new Error("search requires: query")
+        }
+        const result = await handleSearch(args.query as string)
+        return JSON.stringify(result, null, 2)
+      }
+
+      case "context": {
+        if (!args.query) {
+          throw new Error("context requires: query")
+        }
+        const result = await handleContext(args.query as string)
+        return JSON.stringify(result, null, 2)
+      }
+
+      default:
+        throw new Error(`Unknown kb_manage action: ${action}`)
+    }
+  },
+})
+
+export default kbManageTool
