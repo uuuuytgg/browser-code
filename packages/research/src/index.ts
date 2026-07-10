@@ -916,3 +916,13 @@ function attachStepBatchMetadata(step: ProviderStep, batches: ProReaderActionBat
 function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items));
 }
+
+export {
+  type ProReaderTaskInput,
+  type ProReaderTaskOutput,
+  type ProReaderArtifact,
+  type ProReaderSource,
+  type ProReaderUnfinishedItem,
+  type ProReaderTaskState,
+  PROREADER_DEPENDENCIES,
+} from "./protocol"
