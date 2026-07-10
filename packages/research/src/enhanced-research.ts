@@ -1,3 +1,16 @@
+/**
+ * ⚠️ 阶段二对齐标注
+ *
+ * 当前实现通过关键词触发"enhanced research"模式并生成 subagent plan。
+ * 这与 OpenCode task 子代理机制（参见 ProReader 转型纲领 Section 7）不一致。
+ *
+ * 阶段二（独立上下文与状态）将利用 OpenCode 原生 task 工具替代此处的
+ * 关键词检测 + subagent plan 生成逻辑。当前保留但不再扩展。
+ *
+ * 决策日期：2026-07-10
+ * 计划对齐：阶段二
+ */
+
 import type { ProReaderActionBatch, ProviderId, QueryComplexity } from "./index";
 
 export type ProReaderExecutionProfile = "normal" | "enhanced_research";

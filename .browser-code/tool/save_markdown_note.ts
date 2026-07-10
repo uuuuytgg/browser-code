@@ -49,9 +49,12 @@ Unlike the generic 'write' tool:
 - Local mode: when source_url is absent or not http(s), uses local://<hash> as source_url, dedup by content hash, filename from title+date. Use this for non-web content (PDF via Read, OCR output, manual notes).
 
 After saving, complete the KB pipeline:
-1. (Optional) write("kb/sources/<name>.md", source_summary)
-2. (Optional) write("kb/claims/<name>.claims.md", claims)
-3. bash: bun run kb:after-capture vault/.../xxx.md`,
+1. kb_manage({ action: "save_source", title, source_url, source_type, summary, key_points, vault_path })
+2. kb_manage({ action: "save_claims", source_file: "kb/sources/xxx.md", claims: [...] })
+3. kb_manage({ action: "link_topic", topic_name, ... }) / kb_manage({ action: "link_entity", entity_name, ... }) (optional)
+4. kb_manage({ action: "after_capture", vault_path: "vault/.../xxx.md" })
+
+Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
   args: {
     content: tool.schema.string().describe("Full Markdown content of the note."),
     title: tool.schema.string().describe("Note title (used in filename and frontmatter)."),
