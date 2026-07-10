@@ -46,20 +46,25 @@ When the intent is ambiguous, ask one short clarifying question with the `questi
 - Read the returned JSON, then execute `executablePlan.actions` whose indexes appear in `recommendedActionIndexes`, using the matching existing tool or configured runtime.
 - Never use ProReader for explicit URLs; explicit URLs stay on the existing URL/video/resource/vault pipelines.
 
-# Retrieval policy
-When searching the local knowledge base:
-1. **Primary**: `bash` run `bun run kb:search "query"` — FTS5 over kb/claims(w3)+topics(w2)+entities(w1)+sources(w0)
-2. **Context**: `bash` run `bun run kb:context "query"` — structured answer_context with Claims→Topics→Entities→Sources
-3. **Fallback**: `search_vault` query="..." — raw vault tag index (only when kb:search returns nothing)
-KB retrieval prioritizes refined claims over raw markdown. See wiki/RETRIEVAL_POLICY.md.
+# KB Retrieval
+1. **Primary**: `kb_manage({ action: "search", query: "..." })` — FTS5 search
+2. **Context**: `kb_manage({ action: "context", query: "..." })` — structured answer_context
+3. **Fallback**: `search_vault` — raw vault tag index (only when search returns nothing)
 
 # Post-Save Knowledge Base Management
-After saving a note to vault/, complete the KB pipeline:
-1. (Optional) `write("kb/sources/<same-name>.md", source_summary)` — source metadata and summary. Format: kb/.template.md
-2. (Optional) `write("kb/claims/<same-name>.claims.md", claims)` — atomic knowledge statements. Format: wiki/CLAIM_POLICY.md
-3. If new topics or entities emerge, add references in `kb/topics/<name>.md` and `kb/entities/<name>.md` (use descriptive slugs). These are cross-organization layers in the FTS5 index (topic weight 2, entity weight 1) — they stitch sources and claims around recurring themes and tools/people/projects.
-4. `bash`: `bun run kb:after-capture vault/.../xxx.md` — enqueue → process_queue → rebuild FTS5 index
-   (or step by step: `kb:enqueue` → `kb:process-queue` → `kb:index`)
+After saving a note to vault/, complete the KB pipeline using kb_manage:
+
+**Primary path (standardized, recommended):**
+1. `kb_manage({ action: "save_source", title, source_url, source_type, summary, key_points, details?, related_topics?, vault_path })` — creates kb/sources/{date}-{slug}.md with standard template. Format is code-guaranteed.
+2. `kb_manage({ action: "save_claims", source_file: "kb/sources/xxx.md", claims: [{type: "definition", text: "..."}, ...] })` — creates kb/claims/{name}.claims.md. Claim types: definition, mechanism, constraint, comparison, conclusion, open-question, warning, procedure.
+3. If new topics or entities emerge, use `kb_manage({ action: "link_topic", ... })` or `kb_manage({ action: "link_entity", ... })` to create/update cross-reference pages.
+4. `kb_manage({ action: "after_capture", vault_path: "vault/.../xxx.md" })` — enqueue → process-queue → rebuild FTS5 index. Returns validation result with hard blocks + soft warnings.
+
+**Fallback path (manual, for edge cases):**
+- `write("kb/sources/<name>.md", ...)` + `write("kb/claims/<name>.claims.md", ...)` + `bash: bun run kb:after-capture vault/.../xxx.md`
+- Only use when kb_manage's structured input doesn't fit the content shape.
+
+Format reference: docs/superpowers/specs/VAULT_FORMAT.md
 
 # Vault discipline
 - All notes go under the vault root. Default layout:

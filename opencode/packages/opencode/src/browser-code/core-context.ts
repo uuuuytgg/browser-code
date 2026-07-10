@@ -3,13 +3,13 @@ import { join } from "node:path"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { buildLlmWikiLiteStateSummary } from "../../../../../packages/research/src/llm-wiki-state"
 import {
-  buildAmbiguousProReaderQuestion,
   triageProReaderRequest,
 } from "../../../../../packages/research/src/triage"
 
 export type BrowserCodePhase =
   | "url_pipeline"
   | "explicit_skill_direct"
+  | "l1_direct"
   | "proreader_preflight"
   | "proreader_execute"
   | "proreader_save_confirmed"
@@ -105,11 +105,12 @@ export function buildBrowserCodeCoreContext(input: {
     ? findCompletedToolOutputAfterMessage(input.messages, proreaderMatch.messageID, "question")?.output
     : undefined
   const saveConfirmed = proreaderPlan ? hasConfirmedSaveApproval(proreaderPlan, saveApprovalOutput) : false
+  // When ProReader hasn't returned: L1 direct — full tools, agent self-triages.
   const phase: BrowserCodePhase = proreaderPlan
     ? saveConfirmed
       ? "proreader_save_confirmed"
       : "proreader_execute"
-    : "proreader_preflight"
+    : "l1_direct"
   const allowed = proreaderPlan ? deriveAllowedTools(proreaderPlan) : undefined
   const allowedTools = allowed
     ? Array.from(new Set([
@@ -117,35 +118,32 @@ export function buildBrowserCodeCoreContext(input: {
       ...(saveConfirmed ? Array.from(PROREADER_SAVE_TOOLS) : []),
     ])).sort()
     : undefined
-  const answeredQuestion = findCompletedToolOutputAfterLatestUser(input.messages, input.lastUser, "question")
   const llmWikiState = buildRuntimeLlmWikiLiteStateSummary()
   const lines = [
     "<browser_code_core_context>",
     `Phase: ${phase}`,
     `Latest non-URL query: ${query}`,
-    "Browser Code invariant: every non-URL natural-language research or QA request enters ProReader before route-type skills, websearch, platform search, or task fan-out.",
-    "ProReader owns the first agentic intent decision. Inside ProReader, QA prefers KB / LLM Wiki Lite first; code research prefers GitHub / official docs; knowledge research prefers KB / Wikipedia / official docs; platform discovery prefers configured platform providers.",
-    "Provider tendencies are not mutually exclusive gates. When multiple providers can add independent evidence, combine them; websearch / multi-search-engine is a companion discovery backend, not a replacement for KB, GitHub, Wikipedia, official docs, or platform providers.",
     llmWikiState,
   ]
 
-  if (phase === "proreader_preflight") {
+  if (phase === "l1_direct") {
     lines.push(
-      "Available first-step tools are intentionally narrow: call proreader first, or question first only when the query is ambiguous enough to require user disambiguation.",
-      "Do not call skill, task, websearch, webfetch, multi-search-engine, aihot, Bilibili, Douyin, Xiaohongshu, GitHub, or Wikipedia tools before ProReader returns a route.",
+      "L1 direct lane — full tool set available. ProReader is not required.",
+      "Agentic triage: decide whether this task needs ProReader research routing.",
+      "If the task requires external information retrieval, multi-source comparison, or deep analysis — call proreader.",
+      "If the task is a simple operation (save/read/search vault/manage KB/single-page fetch/file ops) — do it directly.",
+      "If the previous turn's ProReader just completed research and the user confirms saving — this is L1, save directly.",
+      "Safety side: when unsure, default to calling proreader. Only skip proreader when clearly unnecessary.",
+      "",
+      "KB retrieval priority:",
+      "  Primary: kb_manage({ action: \"search\", query: \"...\" }) → FTS5 over kb/claims(w3)+topics(w2)+entities(w1)+sources(w0)",
+      "  Context: kb_manage({ action: \"context\", query: \"...\" }) → structured answer_context",
+      "  Fallback: search_vault → raw vault tag index (only when search returns nothing)",
+      "",
+      "Save flow: web_to_markdown(url) → save_markdown_note(...) or write(...) → kb_manage({ action: \"after_capture\", vault_path: \"...\" })",
+      "",
+      "KB writing: kb_manage({ action: \"save_source\", ... }) / kb_manage({ action: \"save_claims\", ... }) / kb_manage({ action: \"link_topic\", ... }) / kb_manage({ action: \"link_entity\", ... })",
     )
-    if (triage.kind === "ambiguous" && triage.options?.length && !answeredQuestion) {
-      const question = buildAmbiguousProReaderQuestion(triage)
-      lines.push(
-        "The query is ambiguous. Call question before proreader and keep the turn alive after the user answers.",
-        `Question payload: ${JSON.stringify({ questions: [question] })}`,
-      )
-    } else if (triage.kind === "ambiguous" && answeredQuestion) {
-      lines.push(
-        "The ambiguity question has been answered. Continue in this same turn by calling proreader using the user's selected direction.",
-        `Question result: ${answeredQuestion}`,
-      )
-    }
   } else {
     const plan = proreaderPlan!
     lines.push(
@@ -199,6 +197,8 @@ export function buildBrowserCodeCoreContext(input: {
 
 export function allowToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
+  // L1 direct: all tools available (agent self-triages whether to call proreader)
+  if (context.phase === "l1_direct") return true
   if (context.phase === "proreader_save_confirmed" && PROREADER_SAVE_TOOLS.has(toolID)) return true
   if ((context.phase === "proreader_execute" || context.phase === "proreader_save_confirmed") && context.allowedTools) {
     return context.allowedTools.includes(toolID)
@@ -212,6 +212,7 @@ export function allowToolForBrowserCodeCoreContext(toolID: string, context?: Bro
 
 export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
+  if (context.phase === "l1_direct") return true
   if ((context.phase === "proreader_execute" || context.phase === "proreader_save_confirmed") && context.allowedMcpTools) {
     return isAllowedMcpTool(toolID, context.allowedMcpTools)
   }
@@ -223,6 +224,7 @@ export function allowMcpToolForBrowserCodeCoreContext(toolID: string, context?: 
 
 export function allowSkillInstructionForBrowserCodeCoreContext(skillName: string, context?: BrowserCodeCoreContext) {
   if (!context) return true
+  if (context.phase === "l1_direct") return true
   if (context.phase === "explicit_skill_direct") return context.allowedSkillNames?.includes(skillName) ?? false
   if (context.phase === "proreader_preflight") return false
   if (context.phase !== "proreader_execute" && context.phase !== "proreader_save_confirmed") return true
