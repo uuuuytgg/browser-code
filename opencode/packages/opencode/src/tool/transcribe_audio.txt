@@ -1,0 +1,17 @@
+- Transcribes audio/video to text via Doubao (Volcengine Ark) cloud ASR — used when fetch_transcript finds no subtitles
+- Takes a local file path (audio OR video; video is auto-extracted to audio via ffmpeg)
+- Downmixes to 16kHz mono mp3 @ 32kbps to fit Doubao's 25MB inline audio limit, then chunks long audio (default 600s/10min per chunk) and transcribes each chunk separately
+- Calls Doubao Ark Responses API (https://ark.cn-beijing.volces.com/api/v3/responses) with model doubao-seed-2-0-lite; audio sent as base64 data URL
+- output_format: "text" (plain transcript, default) or "srt" (timestamped subtitles parsed into lines)
+- language: spoken language hint, default "zh" (Doubao is multilingual including Chinese)
+- Requires ARK_API_KEY env var (Volcengine Ark API key) — never hardcoded. Get one at https://console.volcengine.com/ark
+- Returns transcript lines (srt mode) or flat transcript_text (text mode), plus duration and chunk count
+- next_action is "summarize" on success — caller should summarize via the LLM
+- Requires ffmpeg/ffprobe on PATH
+- Temp audio chunks are cleaned up after transcription (read-and-forget discipline)
+- Note: this is a paid cloud API; monitor usage. Local whisper is an alternative if you add it later.
+
+Usage notes:
+  - Pair with ffmpeg_extract_audio OR pass a video file directly (this tool extracts audio itself)
+  - For subtitle-available videos, prefer fetch_transcript (free, faster); use this only when no subtitles exist
+  - Typical pipeline: fetch_transcript -> if next_action=="need_audio_transcription" -> transcribe_audio -> summarize

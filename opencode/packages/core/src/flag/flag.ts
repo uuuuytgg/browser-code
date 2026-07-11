@@ -1,0 +1,78 @@
+import { Config } from "effect"
+
+export function truthy(key: string) {
+  const value = process.env[key]?.toLowerCase()
+  return value === "true" || value === "1"
+}
+
+const copy = process.env["BROWSER_CODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT"]
+const fff = process.env["BROWSER_CODE_DISABLE_FFF"]
+
+function enabledByExperimental(key: string) {
+  return process.env[key] === undefined ? truthy("BROWSER_CODE_EXPERIMENTAL") : truthy(key)
+}
+
+export const Flag = {
+  OTEL_EXPORTER_OTLP_ENDPOINT: process.env["OTEL_EXPORTER_OTLP_ENDPOINT"],
+  OTEL_EXPORTER_OTLP_HEADERS: process.env["OTEL_EXPORTER_OTLP_HEADERS"],
+
+  BROWSER_CODE_AUTO_HEAP_SNAPSHOT: truthy("BROWSER_CODE_AUTO_HEAP_SNAPSHOT"),
+  BROWSER_CODE_GIT_BASH_PATH: process.env["BROWSER_CODE_GIT_BASH_PATH"],
+  BROWSER_CODE_CONFIG: process.env["BROWSER_CODE_CONFIG"],
+  BROWSER_CODE_CONFIG_CONTENT: process.env["BROWSER_CODE_CONFIG_CONTENT"],
+  BROWSER_CODE_DISABLE_AUTOUPDATE: truthy("BROWSER_CODE_DISABLE_AUTOUPDATE"),
+  BROWSER_CODE_ALWAYS_NOTIFY_UPDATE: truthy("BROWSER_CODE_ALWAYS_NOTIFY_UPDATE"),
+  BROWSER_CODE_DISABLE_PRUNE: truthy("BROWSER_CODE_DISABLE_PRUNE"),
+  BROWSER_CODE_DISABLE_TERMINAL_TITLE: truthy("BROWSER_CODE_DISABLE_TERMINAL_TITLE"),
+  BROWSER_CODE_SHOW_TTFD: truthy("BROWSER_CODE_SHOW_TTFD"),
+  BROWSER_CODE_DISABLE_AUTOCOMPACT: truthy("BROWSER_CODE_DISABLE_AUTOCOMPACT"),
+  BROWSER_CODE_DISABLE_MODELS_FETCH: truthy("BROWSER_CODE_DISABLE_MODELS_FETCH"),
+  BROWSER_CODE_DISABLE_MOUSE: truthy("BROWSER_CODE_DISABLE_MOUSE"),
+  BROWSER_CODE_FAKE_VCS: process.env["BROWSER_CODE_FAKE_VCS"],
+  BROWSER_CODE_SERVER_PASSWORD: process.env["BROWSER_CODE_SERVER_PASSWORD"],
+  BROWSER_CODE_SERVER_USERNAME: process.env["BROWSER_CODE_SERVER_USERNAME"],
+  BROWSER_CODE_DISABLE_FFF: fff === undefined ? process.platform === "win32" : truthy("BROWSER_CODE_DISABLE_FFF"),
+
+  // Experimental
+  BROWSER_CODE_EXPERIMENTAL_FILEWATCHER: Config.boolean("BROWSER_CODE_EXPERIMENTAL_FILEWATCHER").pipe(
+    Config.withDefault(false),
+  ),
+  BROWSER_CODE_EXPERIMENTAL_DISABLE_FILEWATCHER: Config.boolean("BROWSER_CODE_EXPERIMENTAL_DISABLE_FILEWATCHER").pipe(
+    Config.withDefault(false),
+  ),
+  BROWSER_CODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT:
+    copy === undefined ? process.platform === "win32" : truthy("BROWSER_CODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT"),
+  BROWSER_CODE_MODELS_URL: process.env["BROWSER_CODE_MODELS_URL"],
+  BROWSER_CODE_MODELS_PATH: process.env["BROWSER_CODE_MODELS_PATH"],
+  BROWSER_CODE_DB: process.env["BROWSER_CODE_DB"],
+
+  BROWSER_CODE_WORKSPACE_ID: process.env["BROWSER_CODE_WORKSPACE_ID"],
+  BROWSER_CODE_EXPERIMENTAL_WORKSPACES: enabledByExperimental("BROWSER_CODE_EXPERIMENTAL_WORKSPACES"),
+
+  // Evaluated at access time (not module load) because tests, the CLI, and
+  // external tooling set these env vars at runtime.
+  get BROWSER_CODE_DISABLE_PROJECT_CONFIG() {
+    return truthy("BROWSER_CODE_DISABLE_PROJECT_CONFIG")
+  },
+  get BROWSER_CODE_EXPERIMENTAL_REFERENCES() {
+    return enabledByExperimental("BROWSER_CODE_EXPERIMENTAL_REFERENCES")
+  },
+  get BROWSER_CODE_TUI_CONFIG() {
+    return process.env["BROWSER_CODE_TUI_CONFIG"]
+  },
+  get BROWSER_CODE_CONFIG_DIR() {
+    return process.env["BROWSER_CODE_CONFIG_DIR"]
+  },
+  get BROWSER_CODE_PURE() {
+    return truthy("BROWSER_CODE_PURE")
+  },
+  get BROWSER_CODE_PERMISSION() {
+    return process.env["BROWSER_CODE_PERMISSION"]
+  },
+  get BROWSER_CODE_PLUGIN_META_FILE() {
+    return process.env["BROWSER_CODE_PLUGIN_META_FILE"]
+  },
+  get BROWSER_CODE_CLIENT() {
+    return process.env["BROWSER_CODE_CLIENT"] ?? "cli"
+  },
+}

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# post-commit hook — 自动将 vault/ 变更文件加入处理队列
+#
+# 在每次 git commit 后运行，检测 vault/ 下新增或修改的 .md 文件，
+# 自动调用 bun run harness/enqueue.ts 加入 Wiki Lite 处理队列。
+#
+# 安装: git config core.hooksPath .githooks
+# 跳过: git commit --no-verify
+
+set -euo pipefail
+
+# 只在包含 vault/ 变更的提交时运行
+CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD | grep -E '^vault/.*\.md$' || true)
+
+if [ -z "$CHANGED" ]; then
+  # 没有 vault/ 变更，跳过
+  exit 0
+fi
+
+# 找 bun 命令
+BUN=""
+if command -v bun &>/dev/null; then
+  BUN="bun"
+elif [ -f "/usr/local/bin/bun" ]; then
+  BUN="/usr/local/bin/bun"
+elif [ -f "$HOME/.bun/bin/bun" ]; then
+  BUN="$HOME/.bun/bin/bun"
+else
+  # 找不到 bun，静默退出（用户需要手动安装 hooks 依赖）
+  # 写入 stderr 避免干扰 git 输出
+  echo "[post-commit] ⚠️  bun not found, skipping vault enqueue" >&2
+  exit 0
+fi
+
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+
+echo "$CHANGED" | while IFS= read -r file; do
+  echo "[post-commit] 📥 Enqueuing: $file"
+  "$BUN" run "$PROJECT_ROOT/harness/enqueue.ts" "$PROJECT_ROOT/$file" --silent 2>/dev/null || true
+done
+
+# 简短提示
+echo "[post-commit] 📋 Run 'bun run kb:process-queue' to process enqueued items" >&2
+
+exit 0

@@ -3,13 +3,12 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: "node"
+    environment: "node",
+    include: ["apps/**/*.{test,spec}.ts", "packages/**/*.{test,spec}.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "opencode/**"]
   },
   resolve: {
     alias: {
-      "@ska/extension": path.resolve(__dirname, "apps/extension/src/index.ts"),
-      "@ska/local-bridge": path.resolve(__dirname, "apps/local-bridge/src/index.ts"),
-      "@ska/runtime": path.resolve(__dirname, "apps/runtime/src/index.ts"),
       "@ska/mcp-server": path.resolve(__dirname, "apps/mcp-server/src/index.ts"),
       "@ska/schemas": path.resolve(__dirname, "packages/schemas/src/index.ts"),
       "@ska/shared": path.resolve(__dirname, "packages/shared/src/index.ts"),

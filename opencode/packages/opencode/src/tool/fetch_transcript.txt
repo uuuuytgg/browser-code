@@ -1,0 +1,18 @@
+- Fetches video subtitles/transcript via yt-dlp (robust: pulls real manual + auto-generated subtitle tracks)
+- Takes a URL (and optional preferred languages, default "zh,en")
+- Detects platform: YouTube (youtube.com, youtu.be), Bilibili (bilibili.com, b23.tv), or unknown
+- Uses yt-dlp --write-sub --write-auto-sub to download subtitle tracks, then parses SRT/VTT into timestamped lines
+- Returns transcript lines with start/end timestamps and text, plus a flat transcript_text for summarization
+- Reports subtitle_source: "manual" or "auto" (auto-generated captions)
+- Fetches video metadata (title, uploader, duration) via yt-dlp
+- When no subtitles are available, returns next_action: "need_audio_transcription" — caller should route to audio transcription (ffmpeg_extract_audio + transcribe_audio / doubao ASR)
+- When platform is unsupported, returns next_action: "unsupported"
+- Requires yt-dlp installed and on PATH
+- Temp subtitle files are cleaned up after parsing (read-and-forget)
+
+Usage notes:
+  - url must be a valid video page URL
+  - languages: comma-separated preferred language codes (e.g. "zh,en"), first available is used
+  - transcript array contains objects with: start (seconds), end (optional seconds), text (string)
+  - metadata includes optional title, uploader, duration fields
+  - For videos with no subtitles, combine ffmpeg_extract_audio + transcribe_audio to transcribe from audio

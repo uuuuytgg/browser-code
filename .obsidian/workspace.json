@@ -1,0 +1,227 @@
+{
+  "main": {
+    "id": "cae7b264f3a67dbe",
+    "type": "split",
+    "children": [
+      {
+        "id": "2bfad7d168db3f42",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "2a00a864f9ed8628",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "vault/videos/2026-07-05__华为Mate-80-Pro性能分析__BV1F7T46wEyT.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "2026-07-05__华为Mate-80-Pro性能分析__BV1F7T46wEyT"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "12c1c6349fbff20c",
+    "type": "split",
+    "children": [
+      {
+        "id": "c8c209679a0f0170",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6214e852abc5175c",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "704e397012f838ae",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "b78303dbdaa28302",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "cd1367cbca60affe",
+    "type": "split",
+    "children": [
+      {
+        "id": "04c6c223aa0dc42c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e3daaafc027b92d1",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "vault/articles/claude-code-backdoor-2026.md",
+                "collapseAll": true,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "claude-code-backdoor-2026 的反向链接列表"
+            }
+          },
+          {
+            "id": "a84a30332c62050a",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "kb/sources/2026-06-27-qwen-agent-world.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "2026-06-27-qwen-agent-world 的出链列表"
+            }
+          },
+          {
+            "id": "16142bb8ad5fd5b4",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "6e62abcc940e3ee0",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "c03d6bda522b6c61",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "kb/sources/2026-06-27-qwen-agent-world.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "2026-06-27-qwen-agent-world 的大纲"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 200,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false
+    }
+  },
+  "active": "2a00a864f9ed8628",
+  "lastOpenFiles": [
+    "opencode/packages/app/dist/assets/go-B7VTfpnm.js.map",
+    "opencode/packages/app/dist/assets/riscv-C5dpdlr7.js.map",
+    "opencode/packages/app/dist/assets/wasm-CFi-k9--.js.map",
+    "opencode/packages/app/dist/assets/cairo-BYiDgOF2.js",
+    "opencode/packages/app/dist/assets/cadence-BuaeHeSu.js",
+    "opencode/packages/app/dist/assets/cpp-UfJy6YNI.js.map",
+    "opencode/packages/app/dist/assets/wasm-CG6Dc4jp.js.map",
+    "opencode/packages/app/dist/assets/emacs-lisp-CXvaQtF9.js",
+    "opencode/packages/app/dist/assets/cpp-UfJy6YNI.js",
+    "opencode/packages/app/dist/assets/wasm-CG6Dc4jp.js",
+    "opencode/packages/app/dist/assets/sprite-Cw-OOOIB.svg",
+    "opencode/packages/app/dist/assets/vhdl-CeAyd5Ju.js.map",
+    "kb/claims/2026-07-05-2026-07-05__华为Mate-80-Pro性能分析__BV1F7T46wEyT.claims.md",
+    "kb/sources/2026-07-05-2026-07-05__华为Mate-80-Pro性能分析__BV1F7T46wEyT.md",
+    "kb/sources/2026-07-05-huawei-mate80-pro-performance.md",
+    "vault/videos/2026-07-05__华为Mate-80-Pro性能分析__BV1F7T46wEyT.md",
+    "vault/videos/2026-07-05__untitled__c009ef0a.md",
+    "vault/videos/2026-06-28__华为Mate80上手体验__d0f0a7ff.md",
+    "vault/articles/world-models-2026-landscape.md",
+    "vault/videos/how-model-context-protocol-mcp-actually-works.md",
+    "vault/videos/BV1vv7b6XEtx-一整个被舞台硬控住-太上头了.md",
+    "vault/videos/2026-06-27__Qwen-AgentWorld-The-World-Model-for-Agents__VzmMQWRhlBw.md",
+    "vault/videos/2026-06-27__DSpark-DeepSeek-Just-Made-Inference-85%-Faster__EMs7jHxIPyM.md",
+    "vault/articles/claude-system-prompt-leak-research.md",
+    "vault/articles/continuum-gallery.md",
+    "vault/articles/opencode-ai-coding-agent.md",
+    "vault/articles/proreader-improvements-from-claude-ir-harness.md",
+    "vault/articles/claude-code-backdoor-2026.md",
+    "kb/topics/ai-security-trust.md",
+    "kb/entities/Alibaba.md",
+    "kb/sources/2026-07-03-claude-code-backdoor-2026.md",
+    "kb/sources/2026-07-03-claude-system-prompt-leak-research.md",
+    "kb/claims/2026-07-03-claude-code-backdoor-2026.claims.md",
+    "docs/BROWSER_CODE_CORE_HARNESS_REFACTOR_EXECUTION_ZH.md",
+    "docs/BROWSER_CODE_CORE_HARNESS_REFACTOR_RESEARCH.md",
+    "kb/claims/2026-07-03-proreader-improvements-from-claude-ir-harness.claims.md",
+    "kb/claims/2026-07-03-claude-system-prompt-leak-research.claims.md",
+    "vault/assets/BV1Vy7H6eEyh_cover.jpg"
+  ]
+}

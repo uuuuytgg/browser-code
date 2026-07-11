@@ -1,0 +1,251 @@
+{
+  "notes": [
+    {
+      "note_id": "538b5627",
+      "title": "1945年香港日军投降，丘吉尔突然横插一脚，蒋介石罕见硬气了一回",
+      "path": "articles/1945年香港日军投降-丘吉尔横插一脚-蒋介石硬气了一回.md",
+      "tags": [],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://www.bilibili.com/opus/1211510407672365092",
+      "created_at": "2026-06-08",
+      "content_hash": "538b5627"
+    },
+    {
+      "note_id": "314403e2",
+      "title": "Claude Code \"后门\"事件：隐写术识别中国用户的技术分析与行业影响",
+      "path": "articles/claude-code-backdoor-2026.md",
+      "tags": [],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": null,
+      "created_at": "2026-07-03",
+      "content_hash": "314403e2"
+    },
+    {
+      "note_id": "9098f948",
+      "title": "Claude System Prompt Leak Research — Full Findings",
+      "path": "articles/claude-system-prompt-leak-research.md",
+      "tags": [
+        "claude",
+        "anthropic",
+        "system-prompt",
+        "llm",
+        "research",
+        "reverse-engineering",
+        "information-retrieval"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://github.com/asgeirtj/system_prompts_leaks",
+      "created_at": "2026-07-03",
+      "content_hash": "9098f948"
+    },
+    {
+      "note_id": "22903ce3",
+      "title": "Continuum Gallery — Google Photos 瀑布流展示",
+      "path": "articles/continuum-gallery.md",
+      "tags": [
+        "gallery",
+        "google-photos",
+        "design-system",
+        "css",
+        "canvas",
+        "waterfall-layout",
+        "frontend"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://uuuuytgg.github.io/continuum-gallery/",
+      "created_at": "2026-06-29",
+      "content_hash": "22903ce3"
+    },
+    {
+      "note_id": "c0099ad2",
+      "title": "OpenCode | 开源 AI 编程代理",
+      "path": "articles/opencode-ai-coding-agent.md",
+      "tags": [
+        "opencode",
+        "ai",
+        "编程代理",
+        "开源",
+        "llm",
+        "ide"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://opencode.ai/zh",
+      "created_at": "2026-06-28",
+      "content_hash": "c0099ad2"
+    },
+    {
+      "note_id": "c6f33fe9",
+      "title": "ProReader 改进方案：从 Claude IR Harness 借鉴的设计模式",
+      "path": "articles/proreader-improvements-from-claude-ir-harness.md",
+      "tags": [
+        "proreader",
+        "claude",
+        "information-retrieval",
+        "architecture",
+        "design-pattern",
+        "research"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://github.com/asgeirtj/system_prompts_leaks",
+      "created_at": "2026-07-03",
+      "content_hash": "c6f33fe9"
+    },
+    {
+      "note_id": "28e5dd24",
+      "title": "2026 世界模型全景：从学术范式到产业落地",
+      "path": "articles/world-models-2026-landscape.md",
+      "tags": [
+        "世界模型",
+        "world-model",
+        "agi",
+        "物理ai",
+        "具身智能",
+        "自动驾驶",
+        "综述"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": null,
+      "created_at": "2026-07-03",
+      "content_hash": "28e5dd24"
+    },
+    {
+      "note_id": "20260627_EMs7jHxIPyM",
+      "title": "DSpark — DeepSeek Just Made Inference 85% Faster",
+      "path": "videos/2026-06-27__DSpark-DeepSeek-Just-Made-Inference-85%-Faster__EMs7jHxIPyM.md",
+      "tags": [],
+      "keywords": [],
+      "content_type": "video",
+      "source_url": "https://www.youtube.com/watch?v=EMs7jHxIPyM",
+      "created_at": "2026-06-27",
+      "content_hash": "93f25865"
+    },
+    {
+      "note_id": "dff2d1da",
+      "title": "Qwen-AgentWorld: The World Model for Agents",
+      "path": "videos/2026-06-27__Qwen-AgentWorld-The-World-Model-for-Agents__VzmMQWRhlBw.md",
+      "tags": [
+        "qwen",
+        "agent-world",
+        "world-model",
+        "rl",
+        "reinforcement-learning",
+        "agent-framework",
+        "open-source"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://www.youtube.com/watch?v=VzmMQWRhlBw",
+      "created_at": "2026-06-27",
+      "content_hash": "dff2d1da"
+    },
+    {
+      "note_id": "20260628_d0f0a7ff",
+      "title": "真有两把刷子！华为Mate80上手体验",
+      "path": "videos/2026-06-28__华为Mate80上手体验__d0f0a7ff.md",
+      "tags": [],
+      "keywords": [],
+      "content_type": "video",
+      "source_url": "https://www.bilibili.com/video/BV1NBjd6CEeB/",
+      "created_at": "2026-06-26",
+      "content_hash": "49af5012"
+    },
+    {
+      "note_id": "f8c41872",
+      "title": "方向错了！手机跟AI Agent到底该怎么结合？",
+      "path": "videos/2026-06-28__方向错了手机跟AIAgent到底该怎么结合__bbf4c1e8.md",
+      "tags": [],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://www.bilibili.com/video/BV1YV7W6YEFU",
+      "created_at": "2026-06-28",
+      "content_hash": "f8c41872"
+    },
+    {
+      "note_id": "20260628_b0a3c2e1",
+      "title": "《网络测评活动规范》发文后，竟然还被我抓到云控特调！",
+      "path": "videos/2026-06-28__网络测评活动规范发文后云控特调__b0a3c2e1.md",
+      "tags": [],
+      "keywords": [],
+      "content_type": "video",
+      "source_url": "https://www.bilibili.com/video/BV1Vy7H6eEyh/",
+      "created_at": "2026-06-28",
+      "content_hash": "53856d00"
+    },
+    {
+      "note_id": "ab8a117d",
+      "title": "Untitled",
+      "path": "videos/2026-07-05__untitled__c009ef0a.md",
+      "tags": [
+        "华为",
+        "Mate80Pro",
+        "麒麟9030",
+        "麒麟9030Pro",
+        "极客湾",
+        "评测",
+        "鸿蒙",
+        "性能分析"
+      ],
+      "keywords": [],
+      "content_type": "video",
+      "source_url": "https://www.bilibili.com/video/BV1F7T46wEyT/",
+      "created_at": "2026-07-05",
+      "content_hash": "ab8a117d"
+    },
+    {
+      "note_id": "0bc0a62a",
+      "title": "Top 5 Android 17 Features: I Swear It's New!",
+      "path": "videos/android-17-top-5-features-mkbhd.md",
+      "tags": [
+        "android",
+        "android-17",
+        "mkbhd",
+        "google",
+        "pixel",
+        "review"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://www.youtube.com/watch?v=QrT4S9i3agE",
+      "created_at": "2026-06-29",
+      "content_hash": "0bc0a62a"
+    },
+    {
+      "note_id": "fc2c930c",
+      "title": "一整个被舞台硬控住?太上头了！",
+      "path": "videos/BV1vv7b6XEtx-一整个被舞台硬控住-太上头了.md",
+      "tags": [],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://www.bilibili.com/video/BV1vv7b6XEtx/",
+      "created_at": "2026-06-29",
+      "content_hash": "fc2c930c"
+    },
+    {
+      "note_id": "de7af44a",
+      "title": "How Model Context Protocol (MCP) actually works",
+      "path": "videos/how-model-context-protocol-mcp-actually-works.md",
+      "tags": [
+        "mcp",
+        "model-context-protocol",
+        "ai",
+        "llm",
+        "agent",
+        "google-cloud",
+        "api"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "https://www.youtube.com/watch?v=cGuyrANVi4A",
+      "created_at": "2026-06-29",
+      "content_hash": "de7af44a"
+    }
+  ],
+  "updated_at": "2026-07-05T15:22:56.343Z"
+}

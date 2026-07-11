@@ -1,0 +1,10 @@
+Extract text from images using OCR (PaddleOCR). Supports Chinese, English, and mixed-language text. Returns recognized text lines with their bounding box coordinates and confidence scores.
+
+Usage:
+  ocr_text image_path=<path>
+
+Parameters:
+  - image_path (string, required): Path to the image file (local screenshot, scanned doc, etc.)
+
+Output: recognized text lines with positions and confidence.
+Useful for extracting text from screenshots, scanned documents, photos of text, etc.

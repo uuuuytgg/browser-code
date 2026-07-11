@@ -1,0 +1,18 @@
+- Extracts audio track from a video file using ffmpeg
+- Takes an input video file path and optional output format
+- Uses system-installed ffmpeg for audio extraction
+- Creates output in a temporary directory that is automatically cleaned up
+- Supports output formats: mp3, wav, ogg
+- Returns the extracted audio file path, format, and metadata (duration, sample rate, channels)
+- This tool REQUIRES ffmpeg to be installed and available in PATH
+- This tool is a HIGH-RISK operation that requires explicit user permission
+- The intermediate video file is NEVER modified or deleted
+- All temporary audio files are cleaned up after reading
+
+Usage notes:
+  - ffmpeg must be installed on the system and accessible via PATH
+  - input_path: absolute path to a video file
+  - format: "mp3" (default), "wav", or "ogg"
+  - The output file is placed in the system temp directory and cleaned up when no longer needed
+  - metadata returned includes: duration (seconds), sample_rate (Hz), channels (1=mono, 2=stereo)
+  - WARNING: This operation is irreversible on the source — the input file is read-only, but confirm the input path is correct

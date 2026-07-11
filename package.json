@@ -1,18 +1,31 @@
 {
-  "name": "sidebar-knowledge-agent",
+  "name": "browser-code-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.5.0",
+  "bin": {
+    "browser-code": "./bin/browser-code.cjs"
+  },
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "dev": "pnpm --filter @ska/runtime dev",
+    "dev": "pnpm tui",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
-    "rebuild-index": "tsx scripts/rebuild-index.ts",
-    "package:agent": "node ./node_modules/tsup/dist/cli-default.js apps/local-bridge/src/index.ts --no-config --format cjs --dts --out-dir apps/local-bridge/dist-release --no-splitting --platform node --target node20 && tsx scripts/package-agent.ts && npm pack ./release/browser-code --pack-destination ./release",
-    "package:extension": "pnpm --filter @ska/extension build && powershell -ExecutionPolicy Bypass -File scripts/package-extension.ps1",
-    "package:release": "pnpm package:agent && pnpm package:extension"
+    "postinstall": "node scripts/patch-jsx-runtime.cjs && node scripts/patch-css-tree.cjs",
+    "kb:index": "bun run harness/build_index.ts",
+    "kb:search": "bun run harness/search.ts",
+    "kb:context": "bun run harness/make_answer_context.ts",
+    "kb:mcp": "bun run harness/mcp-server.ts",
+    "kb:after-capture": "bun run harness/after-capture.ts",
+    "kb:enqueue": "bun run harness/enqueue.ts",
+    "kb:process-queue": "bun run harness/process-queue.ts",
+    "kb:install-hooks": "bun run harness/install-hooks.ts",
+    "cli": "bun run opencode/packages/opencode/src/temporary.ts",
+    "serve": "bun run opencode/packages/opencode/src/cli/cmd/serve.ts",
+    "tui": "bun run opencode/packages/opencode/src/temporary.ts",
+    "serve:v2": "bun run opencode/packages/cli/src/index.ts serve",
+    "tui:v2": "bun run opencode/packages/cli/src/index.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.10",

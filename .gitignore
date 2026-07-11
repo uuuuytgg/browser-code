@@ -1,6 +1,5 @@
 node_modules/
 dist/
-apps/local-bridge/dist-release/
 .pnpm-store/
 coverage/
 temp/
@@ -8,3 +7,7 @@ release/
 .env
 .DS_Store
 *.log
+.tmp/
+index/*.sqlite
+index/*.sqlite-wal
+index/*.sqlite-shm

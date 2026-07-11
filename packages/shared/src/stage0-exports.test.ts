@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import toolManifest from "../../../tool-manifests/tools.json";
 
-import { extensionAppInfo } from "@ska/extension";
-import { bridgeAppInfo } from "@ska/local-bridge";
 import { mcpServerAppInfo } from "@ska/mcp-server";
-import { runtimeAppInfo } from "@ska/runtime";
 import { toolResourcePackageInfo } from "@ska/tool-resource";
 import { toolVaultPackageInfo } from "@ska/tool-vault";
 import { toolVideoPackageInfo } from "@ska/tool-video";
@@ -18,11 +15,8 @@ describe("Stage 0 workspace exports", () => {
     expect(prohibitedToolNames).toContain("run_shell");
   });
 
-  it("keeps app entrypoints importable", () => {
-    expect(runtimeAppInfo.name).toBe("@ska/runtime");
-    expect(bridgeAppInfo.name).toBe("@ska/local-bridge");
+  it("keeps active app entrypoints importable", () => {
     expect(mcpServerAppInfo.defaultAccess).toBe("read-only");
-    expect(extensionAppInfo.name).toBe("@ska/extension");
   });
 
   it("keeps tool package placeholders importable", () => {

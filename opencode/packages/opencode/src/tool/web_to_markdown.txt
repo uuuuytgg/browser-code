@@ -1,0 +1,14 @@
+- Convert captured HTML into clean, self-contained Markdown (Obsidian Web Clipper level)
+- Accepts URL, raw HTML, mode, optional selected text, and image-localization options
+- Modes: readability (default, best for articles), full (entire body), selection (pre-selected text)
+- Quality gate: if readability output is too thin (< 50 words), automatically falls back to full-body extraction and flags quality_gate=fallback
+- Output includes YAML frontmatter: title, source_url, published, captured_at, byline, excerpt, site_name, language, tags
+- Extracts metadata from HTML meta tags (og:title, description, author, site_name, article:published_time, language)
+- Tag inference: derives tags from og:keywords, article:tag, title tokens, and body keyword frequency; normalizes them (lowercase, alias rules, blocklist, dedup)
+- Published date: extracted from article:published_time / og / <time datetime> (no longer discarded)
+- Image localization (localize_images=true + assets_dir): downloads each image into assets_dir, rewrites markdown image links to local relative paths so notes stay self-contained after the source page changes. Reports images_downloaded and images_failed.
+- Extracts resource links from HTML (images as object_asset, links as webpage_reference)
+- Provides quality indicators: word_count, extraction_method, is_probably_article, quality_gate, images_localized, images_downloaded
+- Read-only for the note itself: does not write the markdown note to the vault (use the write tool or save_markdown_note for that). When localize_images is true it does write downloaded image files into assets_dir.
+- Requires either html content to be passed, OR just a url (the tool will self-fetch the page when html is omitted — useful when webfetch output is too large to thread back through tool params)
+- Uses @mozilla/readability for article extraction, turndown + GFM plugin for HTML-to-markdown conversion
