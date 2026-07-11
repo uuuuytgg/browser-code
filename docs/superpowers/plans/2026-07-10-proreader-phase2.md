@@ -16,6 +16,9 @@
 - 不修改 `proreader.ts` 的核心逻辑（只改 description 字符串）
 - 不添加新 npm 依赖
 - 全部改动在配置文件 + 文本文件（prompt）级别
+- KB 路径确认：所有工具使用 `process.cwd()` 确定路径，全局安装后各项目目录独立知识空间，无交叉污染
+- CDP rescue lane 简化为事后机械补充：ProReader 返回 failures → 主 Agent 用 save_markdown_note 直接补入，不再走三层实时监控
+- Team 编排依赖 OpenCode 原生机制：TodoWrite + 并行 task spawning，不引入额外调度器
 
 ---
 
@@ -331,7 +334,7 @@ git commit -m "docs: update task.txt rule for ProReader subagent, update proread
    - action.kind = "agent_tool" → websearch / webfetch
    - action.kind = "mcp_tool" → 对应 MCP 工具
    - action.kind = "shell_command" / "harness_command" → bash
-4. **失败处理**：遵循 stepGuard（超时/重试规则），收集失败后调用 rescue tool 获取 CDP 兜底
+4. **失败处理**：遵循 stepGuard（超时/重试规则）。失败步骤收集到 failures 数组，标记失败原因和 URL。不阻塞整体研究流程。
 5. **复杂度判断**：满足以下**任意两条** → 火力全开（spawn worker 子代理）：
    - 搜索 3+ 独立 provider
    - 预期结果 > 15 条
@@ -386,7 +389,7 @@ proreader tool 返回的推荐执行 action 列表。优先执行这些，其余
 研究过程中可用的工具暴露策略。按策略使用工具组合，但不改写路由意图。
 
 ### rescueLane
-收集 failures 后调用 rescue tool。tool 返回：哪些可 CDP 兜底、哪些应跳过、哪些不确定。
+失败步骤不阻塞整体研究。将失败信息收集到 failures 数组（含失败原因和 URL），返回给主 Agent。主 Agent 接收后机械判断：CDP 可兜底的用 headless Chrome 补抓 → save_markdown_note 补入；无法兜底的标记为不可用。不重新注入 ProReader 上下文。
 
 ## 禁止
 
@@ -470,3 +473,20 @@ git commit -m "chore: final verification and binary build for phase-2"
     ↓
 任务 6 (编译验证)            ← 依赖所有前序任务
 ```
+
+---
+
+## 验收标准
+
+- [ ] ProReader 子代理可被主 Agent 通过 task tool spawn
+- [ ] ProReader 子代理拥有独立上下文（不包含主 Agent 对话历史）
+- [ ] ProReader 子代理可以调用 proreader tool 生成 plan
+- [ ] ProReader 子代理可以自行执行 plan 中的搜索/抓取步骤
+- [ ] 火力全开模式下 ProReader 可以 spawn worker 子代理
+- [ ] Worker 子代理无权再递归 spawn（task 被 deny）
+- [ ] ProReader 子代理无权写 vault/kb（write/save_markdown_note/kb_manage 被 deny）
+- [ ] 主 Agent 收到 ProReader 结构化结果后可以写入
+- [ ] Direct 通道不受影响（URL 抓取、KB 搜索、写笔记正常）
+- [ ] core-context.ts 不再自动拦截非 URL 请求
+- [ ] CDP rescue 降级为事后机械补充：ProReader 返回 failures → 主 Agent 用 save_markdown_note 补入，不重新注入 ProReader 上下文
+- [ ] Team 编排使用原生 TodoWrite + task spawning，无额外调度器

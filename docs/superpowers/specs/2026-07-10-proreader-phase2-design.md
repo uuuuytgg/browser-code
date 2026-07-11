@@ -26,6 +26,21 @@
 - 不做多轮状态机 / Replan（留给阶段三）
 - 不做动态工具暴露按阶段切换（留给阶段三）
 - 不把 L0 爬虫 agent 化（留给 Multi-Agent 阶段）
+- 不实现复杂的 Agent 队列/调度器（依赖 OpenCode 原生 TodoWrite + task）
+
+### 1.3 KB 位置行为确认
+
+所有写入工具使用 `process.cwd()` 确定知识库路径：
+
+```typescript
+// save_markdown_note.ts
+const vaultDir = join(process.cwd(), "vault")
+
+// kb_manage.ts
+const KB_DIR = join(process.cwd(), "kb")
+```
+
+**行为：** 在哪个项目目录启动 browser-code，知识库就建在哪个目录下。每个项目维持独立的知识空间。全局安装后，不同项目目录之间没有知识库交叉污染。这是期望行为——与旧 Runtime（`C:\Users\lishi\.browser-code\config.json` 中硬编码 vaultDir）不同。
 
 ---
 
@@ -78,6 +93,55 @@
 
 - 不确定时 → 默认走 Research
 - 拒绝走的理由必须来自**否定式边界**：不需要多源对比、不需要跨平台搜索、不需要深度分析
+
+### 2.3 CDP Rescue Lane（简化）
+
+**原设计（阶段一）：** ProReader 作为 tool 运行在主 Agent loop 内时，第三条 lane（CDP 监控层）可实时监控 ProReader 的 tool 调用，在抓取失败时注入 Chrome DevTools 兜底结果，走 ProReader 流程重新整合。
+
+**阶段二的问题：** ProReader 转型为子代理后拥有独立上下文，主 Agent 无法穿透上下文监控其 tool 调用。三层 lane 架构中的 CDP 层不再可行。
+
+**简化方案：** CDP rescue 降级为 **主代理事后机械补充**：
+
+```
+ProReader 子代理完成研究
+    │
+    ▼
+返回结构化结果（含 failures 数组）
+    │
+    ▼
+主 Agent 接收结果
+    │
+    ├── 成功部分 → save_markdown_note + kb_manage 写入
+    │
+    └── failures → 机械判断：
+        ├── CDP 可兜底（页面需 JS 渲染）→ bash + headless Chrome 抓取 → 补入 vault
+        └── CDP 无法兜底（需要登录、纯 API 数据）→ 标记为不可用
+```
+
+**Why 不需要重新回到 ProReader：** 写入格式由 save_markdown_note + kb_manage 标准化，主 Agent 直接用这些工具补入即可。CDP rescue 是纯机械操作——不需要重新规划 provider、不需要研究判断、不需要源交叉验证——这些已经在 ProReader 阶段完成了。
+
+**实现影响：**
+- `.browser-code/tool/rescue.ts` 保持不变（工具本身不需要改）
+- ProReader 子代理 prompt 中保留失败收集指引
+- 主 Agent prompt (browser-code.txt) 中新增：收到 ProReader 结果后检查 failures，机械 rescue 补入
+- 不做的事：不把 rescue 重新注入 ProReader 上下文；不在 core-context.ts 中做 CDP 拦截
+
+### 2.4 Team 编排：依赖 OpenCode 原生机制
+
+**结论：** OpenCode 原生支持 `TodoWrite` + 并行 `task` spawning。实现多 Agent 协作时：
+
+- **不需要** 在 browser-code 中实现额外的调度器/编排引擎
+- **不需要** 复杂的 subagent 依赖图管理
+- **只需要** 在 prompt 文件中写好约束：
+  - 主 Agent prompt：什么情况下分解任务、如何写 task description、如何汇总结果
+  - ProReader 子代理 prompt：什么时候 spawn worker、各 worker 的职责边界
+
+**多步项目编排模式**（如"研究 + 写报告 + 生成 PPT"）：
+1. 主 Agent 先 TodoWrite 列出步骤
+2. 并行 spawn 独立 task（研究走 ProReader、PPT 走 guizang-ppt-skill）
+3. 主 Agent 收集结果、组装最终输出
+
+这与 Phase 2 的设计方向一致：ProReader 专注研究，不负责写文件和编排多 Agent 协作。
 
 ---
 
@@ -168,7 +232,8 @@ Worker 与 ProReader 共享同一 agent type。区分靠 spawn 时传入的 prom
    - action.kind = "shell_command" / "harness_command" → 用 bash 执行
 4. **失败处理**：
    - 遵循 stepGuard 的超时和重试规则
-   - 步骤失败后收集失败信息，调用 `rescue` 工具获取 CDP 兜底方案
+   - 步骤失败后收集到 failures 数组（记录失败原因和 URL），不阻塞整体流程
+   - **不再**在 ProReader 上下文内调用 rescue 工具做 CDP 兜底——CDP rescue 由主 Agent 事后机械处理（见 2.3）
 5. **判断复杂度**：
    - 满足以下任意两条 → 启动火力全开（spawn worker）：
      * 需要搜索 3 个以上独立 provider
@@ -206,12 +271,17 @@ task({
   "findings": [
     {"claim": "...", "confidence": "high|medium|low", "sources": ["url1", "url2"]}
   ],
+  "failures": [
+    {"url": "...", "reason": "timeout|blocked|empty_response", "provider": "..."}
+  ],
   "method": "normal|full_power",
   "workerCount": 0,
   "warnings": ["部分来源未获取"],
   "suggestedActions": ["建议保存以下内容到 vault..."]
 }
 ```
+
+> failures 数组由主 Agent 接收后机械处理：CDP 可兜底（页面需 JS 渲染）→ headless Chrome 补抓 → save_markdown_note 补入；无法兜底 → 标记不可用。
 
 ## 禁止
 
@@ -227,8 +297,18 @@ task({
 - executablePlan.actions 的结构和 action kind 说明
 - recommendedActionIndexes 的用法
 - stepGuard 超时/重试/失败处理规则
-- rescue lane 触发条件
 - dynamicToolExposure 策略约束
+
+> 注意：rescue lane 触发条件**不**搬入——CDP rescue 已降级为事后机械补充（见 2.3），ProReader 只收集 failures 不自行 rescue。
+
+### 4.2 Team 编排约束（仅 prompt 级别）
+
+ProReader 子代理的 Worker 调度走 OpenCode 原生 `task` spawning 机制。不需要额外调度器，只需在 prompt 中规定：
+- **何时 spawn worker**：2/4 条复杂度条件满足时
+- **Worker prompt 模板**：角色限制 + 工具白名单 + 输出格式
+- **禁止**：Worker 内再 spawn（task 默认 deny 已在权限模型中处理）
+
+主 Agent 的多步项目编排（如"研究 + PPT"）同理——TodoWrite 拆步 + 并行 task + 收集结果。ProReader 不负责任务编排，只负责研究。
 
 ---
 
@@ -327,6 +407,15 @@ task({
 - 不把 L0 爬虫 agent 化
 - 不添加新 npm 依赖
 - enhanced-research.ts 不改动（保留阶段一标注）
+- 不实现 CDP rescue lane 三层实时监控（降级为主 Agent 事后机械补充，见 2.3）
+- 不实现复杂的 Agent 队列/调度器（依赖 OpenCode 原生 TodoWrite + task）
+
+### 8.1 CDP Rescue 简化（讨论结论）
+
+- 原设计：三层 lane 架构中 CDP 层实时监控 ProReader tool 调用
+- 阶段二问题：ProReader 成子代理后上下文隔离，主 Agent 无法穿透监控
+- 简化方案：ProReader 返回 failures 数组 → 主 Agent 机械判断补入 → 直接用 save_markdown_note 补
+- 不重新注入 ProReader 上下文，因为 CDP 补齐是纯机械操作不需研究判断
 
 ---
 
