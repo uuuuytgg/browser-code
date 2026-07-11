@@ -91,10 +91,7 @@
     "proreader": {
       "mode": "subagent",
       "description": "Browser Code research expert. Receives research tasks, generates plans via the proreader tool, executes searches across 12 providers, spawns worker subagents for parallel batch work, synthesizes results. Returns structured findings — does NOT write vault/kb/sqlite.",
-      "model": {
-        "modelID": "deepseek-v4-flash",
-        "providerID": "deepseek"
-      },
+      "model": "deepseek/deepseek-v4-flash",
       "permission": {
         "proreader": "allow",
         "websearch": "allow",
