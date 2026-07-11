@@ -19,6 +19,7 @@
 - KB 路径确认：所有工具使用 `process.cwd()` 确定路径，全局安装后各项目目录独立知识空间，无交叉污染
 - CDP rescue lane 简化为事后机械补充：ProReader 返回 failures → 主 Agent 用 save_markdown_note 直接补入，不再走三层实时监控
 - Team 编排依赖 OpenCode 原生机制：TodoWrite + 并行 task spawning，不引入额外调度器
+- 子代理持久化依赖 OpenCode 原生 SQLite session storage：task_id 机制自动覆盖，不额外实现
 
 ---
 

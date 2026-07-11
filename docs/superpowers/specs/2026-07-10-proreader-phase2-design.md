@@ -27,6 +27,7 @@
 - 不做动态工具暴露按阶段切换（留给阶段三）
 - 不把 L0 爬虫 agent 化（留给 Multi-Agent 阶段）
 - 不实现复杂的 Agent 队列/调度器（依赖 OpenCode 原生 TodoWrite + task）
+- 不实现自定义子代理持久化（依赖 OpenCode 原生 task_id + SQLite session storage）
 
 ### 1.3 KB 位置行为确认
 
@@ -41,6 +42,24 @@ const KB_DIR = join(process.cwd(), "kb")
 ```
 
 **行为：** 在哪个项目目录启动 browser-code，知识库就建在哪个目录下。每个项目维持独立的知识空间。全局安装后，不同项目目录之间没有知识库交叉污染。这是期望行为——与旧 Runtime（`C:\Users\lishi\.browser-code\config.json` 中硬编码 vaultDir）不同。
+
+### 1.4 ProReader 子代理持久化确认
+
+**问题：** ProReader 转型为子代理后，研究过程中遇到 `/compact` 或会话中断时，子代理的上下文是否会丢失？
+
+**结论：** **不会。** OpenCode 的 `task` 机制原生支持会话持久化：
+
+- 每个 task 子代理拥有独立的 `task_id`，其完整上下文（系统 prompt + 对话历史 + 工具调用记录）通过 SQLite 持久化存储
+- 主 Agent 通过 `task_id` 恢复子代理会话——和主 Agent 自身的会话恢复是同一套机制
+- ProReader 研究过程中断：主 Agent `/compact` 后通过 `task_id` 继续等待结果即可
+- ProReader 完成后断连：结果已持久化在主 Agent 会话中，恢复后直接可见
+
+**Why 不需要额外实现：** OpenCode 的 task 持久化是内置的，不是 browser-code 需要额外开发的。ProReader 作为标准 `task` 子代理自动继承这套机制。
+
+**阶段二不需要做的：**
+- 不需要实现自定义持久化层
+- 不需要修改 OpenCode session storage
+- 不需要手动管理 subagent 状态恢复
 
 ---
 
