@@ -36,17 +36,13 @@ const providerIds = [
 ] as const
 
 const proreaderTool: ToolDefinition = tool({
-  description: `Route fuzzy research requests through BrowserCode ProReader.
+  description: `Internal research planning tool. Called by the ProReader subagent (not by the main agent).
 
-Use this for natural-language research, local LLM Wiki Lite questions, GitHub/Wikipedia/official-docs planning, and video/social platform discovery.
+Generates a provider plan with route, executable actions, step guards, and rescue lane. The ProReader subagent then executes the plan, delegates parallel work to worker subagents when complexity warrants, and synthesizes results for return to the main agent.
 
-Do not use this for explicit URLs. Explicit URLs must stay on the existing BrowserCode URL pipeline and current web/video/resource/vault tools.
+This tool does not fetch URLs, does not write vault/kb/sqlite. It returns the plan; execution is the ProReader subagent's responsibility.
 
-Before calling this tool, make your own agentic intent decision. Do not classify by keyword tables. Decide intent, research depth, provider bias, review need, and save mode from the user's real goal and available context.
-
-When no provider tendency clearly dominates, use the available provider surface generously: include local KB, reference providers, platform/search providers, and websearch when they can add independent evidence. Do not collapse unclear research into only one generic websearch/MSE pass unless the task is truly simple.
-
-This tool does not fetch URLs, does not enrich unreviewed candidates, and does not write Vault, kb, or sqlite. It returns the route, provider plan, execution requests, and provider readiness diagnostics so the agent can use existing tools or configured providers intentionally.`,
+Before calling this tool, the ProReader subagent should assess: intent, research depth, provider bias, review needs, and save mode.`,
   args: {
     query: tool.schema.string().describe("Natural-language fuzzy query to route through ProReader."),
     intent: tool.schema

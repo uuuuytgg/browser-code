@@ -84,5 +84,33 @@
         }
       }
     }
+  },
+  // ProReader subagent — research expert with independent context.
+  // Spawned by the main agent via task({subagent_type: "proreader", ...}).
+  "agent": {
+    "proreader": {
+      "mode": "subagent",
+      "description": "Browser Code research expert. Receives research tasks, generates plans via the proreader tool, executes searches across 12 providers, spawns worker subagents for parallel batch work, synthesizes results. Returns structured findings — does NOT write vault/kb/sqlite.",
+      "model": {
+        "modelID": "deepseek-v4-flash",
+        "providerID": "deepseek"
+      },
+      "permission": {
+        "proreader": "allow",
+        "websearch": "allow",
+        "webfetch": "allow",
+        "read": "allow",
+        "bash": "allow",
+        "task": "allow",
+        "question": "deny",
+        "todowrite": "deny",
+        "write": "deny",
+        "edit": "deny",
+        "save_markdown_note": "deny",
+        "kb_manage": "deny",
+        "search_vault": "deny"
+      },
+      "steps": 25
+    }
   }
 }
