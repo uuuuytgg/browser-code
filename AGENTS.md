@@ -75,9 +75,9 @@ spawn 子代理时 prompt 必须包含：
 | 任务 | subagent_type | 关键约束 |
 |------|---------------|---------|
 | 研究/搜索 | "proreader" | 只读不写，返回结构化 JSON |
-| 解析内容/提取数据 | "general-purpose" | 只读，返回结构化 JSON |
-| 代码审查/检查 | "general-purpose" | 只读，返回问题列表 |
-| PPT 生成 | "general-purpose" | 调 skill，产出文件 |
+| 解析内容/提取数据 | "general" | 只读，返回结构化 JSON |
+| 代码审查/检查 | "general" | 只读，返回问题列表 |
+| PPT 生成 | "general" | 调 skill，产出文件 |
 
 ---
 
