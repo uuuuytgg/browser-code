@@ -1,0 +1,24 @@
+[mcp_servers.bilibili-readonly]
+command = "tools/mcp/.venv/Scripts/python.exe"
+args = ["tools/mcp/bilibili-readonly-server.py"]
+
+[mcp_servers.bilibili-video-info]
+command = "tools/mcp/.venv/Scripts/bilibili-video-info-mcp.exe"
+env_vars = ["SESSDATA"]
+
+[mcp_servers.browsercode-knowledge]
+command = "bun"
+args = [
+    "run",
+    "harness/mcp-server.ts",
+]
+
+[mcp_servers.douyin-cli]
+command = "tools/mcp/bin/douyin.exe"
+args = ["mcp"]
+
+[mcp_servers.douyin-cli.env]
+HTTP_PROXY = ""
+HTTPS_PROXY = ""
+ALL_PROXY = ""
+NO_PROXY = "*"

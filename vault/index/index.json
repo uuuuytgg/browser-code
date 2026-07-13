@@ -12,6 +12,46 @@
       "content_hash": "538b5627"
     },
     {
+      "note_id": "bc5eee69",
+      "title": "Claude Fable 5 与 GPT-5.6 对比研究报告",
+      "path": "articles/2026-07-11__claude-fable-5-与-gpt-5-6-对比研究报告__46b49d2b.md",
+      "tags": [
+        "ai",
+        "llm",
+        "comparison",
+        "anthropic",
+        "openai",
+        "fable5",
+        "gpt56",
+        "report"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "local://46b49d2b",
+      "created_at": "2026-07-11",
+      "content_hash": "bc5eee69"
+    },
+    {
+      "note_id": "8baf8a10",
+      "title": "Claude Fable 5 与 GPT-5.6 对比研究报告",
+      "path": "articles/2026-07-11__claude-fable-5-与-gpt-5-6-对比研究报告__4e202454.md",
+      "tags": [
+        "ai",
+        "llm",
+        "comparison",
+        "anthropic",
+        "openai",
+        "fable5",
+        "gpt56",
+        "report"
+      ],
+      "keywords": [],
+      "content_type": "article",
+      "source_url": "local://4e202454",
+      "created_at": "2026-07-11",
+      "content_hash": "8baf8a10"
+    },
+    {
       "note_id": "314403e2",
       "title": "Claude Code \"后门\"事件：隐写术识别中国用户的技术分析与行业影响",
       "path": "articles/claude-code-backdoor-2026.md",
@@ -179,9 +219,9 @@
       "content_hash": "53856d00"
     },
     {
-      "note_id": "ab8a117d",
-      "title": "Untitled",
-      "path": "videos/2026-07-05__untitled__c009ef0a.md",
+      "note_id": "4fcf1c09",
+      "title": "华为Mate 80 Pro性能分析：进步巨大！",
+      "path": "videos/2026-07-05__华为Mate-80-Pro性能分析__BV1F7T46wEyT.md",
       "tags": [
         "华为",
         "Mate80Pro",
@@ -193,10 +233,10 @@
         "性能分析"
       ],
       "keywords": [],
-      "content_type": "video",
+      "content_type": "article",
       "source_url": "https://www.bilibili.com/video/BV1F7T46wEyT/",
       "created_at": "2026-07-05",
-      "content_hash": "ab8a117d"
+      "content_hash": "4fcf1c09"
     },
     {
       "note_id": "0bc0a62a",
@@ -247,5 +287,5 @@
       "content_hash": "de7af44a"
     }
   ],
-  "updated_at": "2026-07-05T15:22:56.343Z"
+  "updated_at": "2026-07-11T15:12:29.487Z"
 }
