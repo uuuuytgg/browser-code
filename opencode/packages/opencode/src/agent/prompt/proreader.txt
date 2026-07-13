@@ -26,7 +26,7 @@
 ## Worker 调度
 
 火力全开时并行 spawn worker：
-- agent type: "general-purpose"
+- agent type: "general"
 - prompt 中写："你是研究 Worker。只执行搜索/抓取，不综合。返回 [{title, url, snippet, provider}]"
 - 每个 Worker 负责一个 provider 类别或一组搜索词
 - 收集所有 Worker 结果后综合去重
