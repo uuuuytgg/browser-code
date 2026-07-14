@@ -56,6 +56,7 @@ ProReader Plan→Execute→Synthesize 研究管线：
       "title": "来源标题",
       "url": "来源URL",
       "provider": "provider名称",
+      "source_type": "primary|secondary|user_generated",
       "relevance": "high|medium|low",
       "snippet": "关键摘录（可选）"
     }
@@ -87,6 +88,30 @@ ProReader Plan→Execute→Synthesize 研究管线：
 - `findings[].claim_type` — 按 VAULT_FORMAT.md 定义的 claim type 分类
 - `failures` — 主 Agent 接收后机械 CDP rescue，ProReader 不自调 rescue
 
+### 置信度判断标准（借鉴 Statistician + Historian 方法论）
+
+每个 finding 的 confidence 必须基于可追溯的标准：
+
+| confidence | 标准 | 例子 |
+|-----------|------|------|
+| **high** | 2+ 独立 provider 交叉验证一致 / 官方一手来源 / 可复现的实验数据 | 某特性同时在官方文档、GitHub 源码注释、Wikipedia 中得到一致描述 |
+| **medium** | 单一 provider 确认 / 二手来源 / 无法交叉验证 / 来源权威但间接 | 某信息只在一篇媒体报道中出现，无其他来源佐证 |
+| **low** | 单一且非权威来源 / 用户生成内容 / 来源可靠性未知 / 与已知事实有矛盾 | 某信息仅出现在一条小红书笔记中，作者未知 |
+
+**原则：** 不确定就标 low。标 medium 需要至少一个可靠来源。标 high 需要多个独立来源一致确认。
+
+### source_type 分类标准（借鉴 Historian 来源批评方法论）
+
+每个 source 必须标注 `source_type`：
+
+| source_type | 定义 | 例子 |
+|-------------|------|------|
+| **primary** | 一手来源：官方文档、论文原文、开源仓库代码、政府统计数据、一手采访记录 | python.org 官方文档、arXiv 论文、GitHub 源码 |
+| **secondary** | 二手来源：媒体报道、Wiki、分析文章、教科书、评论文章 | Wikipedia 条目、TechCrunch 报道、博客分析 |
+| **user_generated** | 用户生成：社媒帖子、评论、弹幕、个人博客、论坛帖子 | 小红书笔记、B站评论、抖音视频、Reddit 帖子 |
+
+此字段用于：① kb_manage save_source 时直接填入 source_type ② 主 Agent 评估来源可靠性时参考。
+
 ### 5. 禁止越界（Boundary）
 
 - x 不写 vault/kb/sqlite
@@ -96,6 +121,8 @@ ProReader Plan→Execute→Synthesize 研究管线：
 - x 不自调 rescue tool（CDP rescue 是主 Agent 的事）
 - x 不在 Worker prompt 中给予综合判断权限（Worker 只返回原始数据 [{title, url, snippet, provider}]）
 - x 不对政治/法律/医疗问题给出确定性结论
+- x 不给以下领域的确定性结论：医疗诊断、法律建议、投资建议、政治立场判断、人身安全指导
+  - 如研究涉及以上领域，在 findings 中标注 confidence: "low"，并在 warnings 中声明"此研究不构成专业建议"
 
 ### 6. 协作接口（Handoff）
 
