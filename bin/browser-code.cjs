@@ -7,7 +7,7 @@ const path = require("path")
 const { spawnSync } = require("child_process")
 
 const workspaceRoot = path.resolve(__dirname, "..")
-const forkBinary = path.join(workspaceRoot, "opencode/packages/opencode/dist/opencode-windows-x64/bin/opencode")
+const forkBinary = path.join(workspaceRoot, "opencode/packages/opencode/dist/opencode-windows-x64/bin/opencode.exe")
 
 const result = spawnSync(forkBinary, process.argv.slice(2), {
   stdio: "inherit",
