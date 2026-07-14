@@ -11,3 +11,12 @@ release/
 index/*.sqlite
 index/*.sqlite-wal
 index/*.sqlite-shm
+# old merge artifacts & temp files
+_tmp_*
+_merge_master/
+# python virtualenv for MCP tools
+tools/mcp/.venv/
+tools/mcp/__pycache__/
+# opencode build deps
+opencode/node_modules/
+opencode/.turbo/
