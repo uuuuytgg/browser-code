@@ -1,18 +1,32 @@
 {
-  "name": "browser-code-workspace",
-  "version": "0.1.0",
-  "private": true,
+  "name": "browser-code",
+  "version": "0.2.0",
+  "description": "Browser Code — web content capture, research, and knowledge management agent",
+  "license": "MIT",
+  "private": false,
   "type": "module",
   "packageManager": "pnpm@11.5.0",
   "bin": {
     "browser-code": "./bin/browser-code.cjs"
   },
+  "files": [
+    "bin/browser-code.cjs",
+    "scripts/postinstall.js",
+    ".browser-code/browser-code.jsonc",
+    ".browser-code/tool/",
+    "harness/",
+    "tools/mcp/bin/",
+    "wiki/",
+    "AGENTS.md",
+    "README.md",
+    "package.json"
+  ],
+  "os": ["win32", "darwin", "linux"],
+  "cpu": ["x64", "arm64"],
   "scripts": {
-    "build": "pnpm -r --if-present build",
-    "dev": "pnpm tui",
-    "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r --if-present typecheck",
-    "postinstall": "node scripts/patch-jsx-runtime.cjs && node scripts/patch-css-tree.cjs",
+    "postinstall": "node scripts/postinstall.js",
+    "build": "echo \"build via opencode/packages/opencode: bun run script/build.ts --single\"",
+    "test": "echo \"no tests yet\"",
     "kb:index": "bun run harness/build_index.ts",
     "kb:search": "bun run harness/search.ts",
     "kb:context": "bun run harness/make_answer_context.ts",
@@ -27,6 +41,12 @@
     "serve:v2": "bun run opencode/packages/cli/src/index.ts serve",
     "tui:v2": "bun run opencode/packages/cli/src/index.ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lishi/browser-code"
+  },
+  "keywords": ["browser", "web", "archive", "knowledge-base", "agent", "research", "opencode"],
+  "author": "lisiyuan968@gmail.com",
   "devDependencies": {
     "@types/node": "^24.0.10",
     "@types/react": "^19.1.8",
