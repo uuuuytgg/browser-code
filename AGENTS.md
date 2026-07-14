@@ -9,7 +9,7 @@
 
 | 类型 | 适用对象 | 约束方式 | 例子 |
 |------|---------|---------|------|
-| **专家型** | 有明确领域和方法的子代理 | 六要素完整定义（领域/方法论/输入/输出/边界/协作） | proreader |
+| **专家型** | 有明确领域和方法的子代理 | 六要素完整定义（领域/方法论/输入/输出/边界/协作） | proreader, anthropologist, geographer, historian, psychologist |
 | **执行型** | 干繁琐体力活的子代理 | 输入输出标准化 + 行为边界 | general |
 
 **Why 双轨：** 专家需要深度方法论，执行者需要广度灵活性。给执行者加领域限制 = 废了它的武功。
@@ -87,6 +87,23 @@ KB 写入（save_source、save_claims、link_topic、link_entity、after_capture
 
 ---
 
+### 学术分析 Agent（专家型 · 六要素完整 · 用户提交材料分析专用）
+
+当用户提交文件（报告/文章/数据/描述）并要求从特定学科角度分析时使用：
+
+| Agent Type | 领域 | 适用场景 |
+|------------|------|---------|
+| `anthropologist` | 文化系统、仪式、信仰、社会习俗、民族志 | "从人类学角度分析这份田野调查" |
+| `geographer` | 空间模式、气候、地形、资源分布、聚落 | "从地理学角度分析这个区域规划" |
+| `historian` | 历史分期、物质文化、来源批评、时代背景 | "从历史角度验证这份文档的时代背景" |
+| `psychologist` | 人格理论、动机、认知模式、行为分析 | "从心理学角度分析这份用户访谈" |
+
+spawn 方式：`task({subagent_type: "historian", prompt: "分析这份材料：..."})`
+
+六个要素（领域/方法论/输入/输出/边界/协作）已在 browser-code.jsonc 的 agent 配置中定义。主 Agent spawn 时只需传 prompt 指定要分析的输入。
+
+---
+
 ### `proreader` — 研究专家（专家型 · 六要素完整）
 
 | 要素 | 内容 |
@@ -102,22 +119,26 @@ KB 写入（save_source、save_claims、link_topic、link_entity、after_capture
 
 ### `general` — 通用执行器（执行型 · 输入输出标准化）
 
-general 是**体力劳动者**，不是专家。可以干任何不需要专业判断的繁琐活：
-- 长文件读取、内容提取、结构化解析
-- 报告 → claims/entities/topics 提取
-- 格式转换、批量编辑
+general 是**体力劳动者**，不是专家。权限为 `*: allow`（全部工具可用），可以干任何不需要专业判断的繁琐活：
+
+- 长文件读取、内容解析、结构化数据提取
+- 报告 → claims/entities/topics 提取（直接调 kb_manage 写入 + save_markdown_note 保存）
+- 格式转换（HTML→Markdown、JSON→表格）
 - 代码搜索（grep/glob）、目录探索
-- PPT 生成、文档排版（调 skill）
-- KB 解析管线（读源文件 → 提取 → 返结构化 JSON 给主 Agent 调 kb_manage）
+- OCR 提取（ocr_text）、音视频处理（transcribe_audio、ffmpeg_extract_audio、fetch_transcript）
+- PPT 生成（调 skill，如 guizang-ppt-skill）
+- 网页抓取（webfetch）、搜索引擎查询（websearch）
+- KB 全管线（save_source → save_claims → link_topic → link_entity → after_capture）
+- 文件写入编辑（write、edit），主 Agent 授权后执行
 - 以及主 Agent 临时需要的任何机械任务
 
-约束方式不是领域边界，而是 **输入输出标准化**：
+**约束方式不是领域边界，而是输入输出标准化：**
 
 | 约束 | 内容 |
 |------|------|
-| **输入标准** | 主 Agent 必须明确：① 做什么 ② 数据在哪 ③ 输出什么格式 |
+| **输入标准** | 主 Agent 必须明确：① 做什么 ② 数据在哪 ③ 输出什么格式 ④ 允许调哪些工具 |
 | **输出标准** | 结构化 JSON：`{"result": <按任务定义>, "warnings": [...]}` |
-| **行为边界** | x 不做研究判断（proreader 的活）x 不替主 Agent 决策 x 不递归 spawn x 不写文件（除非 `allow_write: true`） |
+| **行为边界** | x 不做研究判断（proreader 的活）x 不替主 Agent 决策 x 不递归 spawn |
 
 **spawn 模板：**
 ```
@@ -126,9 +147,11 @@ prompt: |
   任务：[一句话]
   输入：[文件路径 / 数据内容]
   输出：{"result": [schema], "warnings": [...]}
-  授权：[allow_write: true/false]
+  工具：[可调用的工具列表，如 kb_manage, save_markdown_note, ocr_text, ...]
   边界：不判断内容真伪、不做研究搜索、不替主 Agent 决策
 ```
+
+**KB 管线对接标准：** general 提取的 claims JSON 应直接对到 kb_manage save_claims 的参数格式 —— 每条 claim 含 `text`（claim 文本）、`type`（definition|mechanism|constraint|comparison|conclusion|open-question|warning|procedure）、`confidence`（high|medium|low）、`sources`（支撑该 claim 的 source URL 列表）。主 Agent 收到后可直接逐条调用 kb_manage。
 
 ---
 
