@@ -17,6 +17,8 @@
     "harness/",
     "tools/mcp/bin/",
     "wiki/",
+    "opencode/",
+    "packages/",
     "AGENTS.md",
     "README.md",
     "package.json"
