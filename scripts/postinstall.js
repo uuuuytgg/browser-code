@@ -5,7 +5,7 @@ const fs = require("fs")
 const path = require("path")
 const { spawnSync } = require("child_process")
 
-const GITHUB_RELEASES = "https://github.com/lishi/browser-code/releases/download"
+const GITHUB_RELEASES = "https://github.com/uuuuytgg/browser-code/releases/download"
 
 // Read version from package.json
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"))

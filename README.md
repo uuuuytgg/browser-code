@@ -1,25 +1,27 @@
 # Browser Code
 
-Web content capture, research, and knowledge management agent.
+网页内容捕获、多源研究与知识管理智能体。
 
-## Install
+[English](README.en.md)
+
+## 安装
 
 ```bash
 npm install -g browser-code
 ```
 
-## Usage
+## 使用
 
 ```bash
 browser-code
-# or with a specific port
+# 或指定端口
 browser-code --port 34567
 ```
 
-## Knowledge Base
+## 知识库
 
-On first run, Browser Code creates `vault/` and `kb/` directories in your current working directory.
-Each project folder gets its own independent knowledge space.
+首次运行时，Browser Code 会在你当前的工作目录创建 `vault/` 和 `kb/` 目录。
+每个项目文件夹拥有独立的知识空间。
 
 ## 隐私说明
 
@@ -29,35 +31,35 @@ Each project folder gets its own independent knowledge space.
 - 你的所有研究数据仅存储在你本地的 `kb/` 和 `vault/` 中
 - 如需备份，请自行管理这些目录
 
-## Features
+## 功能特性
 
-- **Web Capture**: Save any web page as clean Markdown with local assets
-- **Research**: Multi-source research across 12 providers (web, GitHub, Wikipedia, video platforms, social media)
-- **Knowledge Base**: Automatic FTS5 indexing, claim extraction, topic/entity linking
-- **Video Summarization**: Transcript extraction + AI summarization for YouTube, Bilibili, Douyin
-- **PPT Generation**: Create presentation decks from research results
-- **Academic Analysis**: Built-in anthropologist, geographer, historian, and psychologist subagents for material analysis
+- **网页捕获**：将任意网页保存为干净的 Markdown，附带本地资源
+- **多源研究**：跨 12 个 provider 的研究管线（网页、GitHub、Wikipedia、视频平台、社交媒体）
+- **知识库**：自动 FTS5 索引、claim 提取、主题/实体链接
+- **视频摘要**：YouTube、B站、抖音的字幕提取 + AI 摘要
+- **PPT 生成**：从研究结果生成演示文稿
+- **学术分析**：内置人类学家、地理学家、历史学家、心理学家子代理
 
-## Requirements
+## 环境要求
 
 - Node.js >= 18
-- Windows x64, macOS (Apple Silicon / Intel), Linux x64
-
-## Development
-
-```bash
-git clone https://github.com/lishi/browser-code
-cd browser-code
-pnpm install
-bun run opencode/packages/opencode/script/build.ts --single
-```
-
-## License
-
-MIT
+- Windows x64 / macOS（Apple Silicon 与 Intel）/ Linux x64
 
 ## MCP 配置
 
 Browser Code 依赖多个 MCP Server 实现完整搜索管线。部分 Server 需要额外安装运行时或配置环境变量。
 
 详见 [MCP Server 安装指南](wiki/SETUP.md)
+
+## 开发
+
+```bash
+git clone https://github.com/uuuuytgg/browser-code
+cd browser-code
+pnpm install
+bun run opencode/packages/opencode/script/build.ts --single
+```
+
+## 许可证
+
+MIT
