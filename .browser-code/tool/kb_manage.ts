@@ -19,6 +19,8 @@ const CLAIM_TYPES = [
   "conclusion", "open-question", "warning", "procedure",
 ] as const
 const ENTITY_TYPES = ["tool", "project", "concept", "framework", "person", "organization"] as const
+const CONFIDENCE_LEVELS = ["high", "medium", "low"] as const
+type ConfidenceLevel = typeof CONFIDENCE_LEVELS[number]
 
 type SourceType = typeof SOURCE_TYPES[number]
 type ClaimType = typeof CLAIM_TYPES[number]
@@ -125,6 +127,8 @@ interface SaveClaimsArgs {
   claims: Array<{
     type: ClaimType
     text: string
+    confidence: ConfidenceLevel
+    source_ref?: string
   }>
 }
 
@@ -213,6 +217,7 @@ function handleSaveSource(args: SaveSourceArgs): {
 function handleSaveClaims(args: SaveClaimsArgs): {
   filePath: string
   claimCount: number
+  warnings: string[]
   created: boolean
 } {
   const sourceName = args.source_file
@@ -225,21 +230,31 @@ function handleSaveClaims(args: SaveClaimsArgs): {
   const filename = `${sourceName}.claims.md`
   const filePath = join(CLAIMS_DIR, filename)
 
+  const warnings: string[] = []
+
   if (existsSync(filePath)) {
-    return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, created: false }
+    return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, warnings: [], created: false }
   }
 
-  // 验证 claim type
+  // 验证 claim type + confidence
   for (const claim of args.claims) {
     if (!CLAIM_TYPES.includes(claim.type)) {
       throw new Error(
         `无效的 claim type: "${claim.type}"。有效值：${CLAIM_TYPES.join(", ")}`,
       )
     }
+    if (!CONFIDENCE_LEVELS.includes(claim.confidence)) {
+      throw new Error(
+        `claim 缺少有效的 confidence 字段："${claim.text.slice(0, 50)}..."。必须为 high/medium/low。`,
+      )
+    }
+    if (!claim.source_ref) {
+      warnings.push(`claim 缺少 source_ref：${claim.text.slice(0, 60)}...`)
+    }
   }
 
   const claimLines = args.claims
-    .map((c) => `- [${c.type}] ${c.text}`)
+    .map((c) => `- [${c.type}] ${c.text} — **Confidence:** ${c.confidence} — **Source:** ${c.source_ref || "见原文"}`)
     .join("\n")
 
   const content = [
@@ -256,7 +271,7 @@ function handleSaveClaims(args: SaveClaimsArgs): {
   ].join("\n")
 
   safeWrite(filePath, content)
-  return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, created: true }
+  return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, warnings, created: true }
 }
 
 /**
@@ -594,9 +609,11 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
           "conclusion", "open-question", "warning", "procedure",
         ]),
         text: tool.schema.string(),
+        confidence: tool.schema.enum(["high", "medium", "low"]),
+        source_ref: tool.schema.string().optional(),
       }))
       .optional()
-      .describe("(save_claims) Array of {type, text} claim objects."),
+      .describe("(save_claims) Array of {type, text, confidence, source_ref?} claim objects."),
 
     topic_name: tool.schema.string().optional()
       .describe("(link_topic) Topic name in English."),
@@ -653,7 +670,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         }
         const result = handleSaveClaims({
           source_file: args.source_file as string,
-          claims: args.claims as Array<{ type: ClaimType; text: string }>,
+          claims: args.claims as Array<{ type: ClaimType; text: string; confidence: ConfidenceLevel; source_ref?: string }>,
         })
         return JSON.stringify(result, null, 2)
       }

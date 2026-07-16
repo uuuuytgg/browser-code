@@ -20,3 +20,10 @@ tools/mcp/__pycache__/
 # opencode build deps
 opencode/node_modules/
 opencode/.turbo/
+# user knowledge base data (runtime generated, do not track)
+kb/
+vault/
+# keep skeleton files
+!kb/**/.gitkeep
+!kb/**/.template.md
+!vault/**/.gitkeep
