@@ -27,3 +27,6 @@ vault/
 !kb/**/.gitkeep
 !kb/**/.template.md
 !vault/**/.gitkeep
+# compiled binaries (built locally or downloaded via postinstall)
+bin/*.exe
+bin/browser-code
