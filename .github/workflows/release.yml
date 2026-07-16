@@ -39,8 +39,18 @@ jobs:
         working-directory: opencode/packages/opencode
         run: bun run script/build.ts --single
 
+      - name: Rename binary for release
+        shell: bash
+        working-directory: opencode/packages/opencode/dist/opencode-${{ matrix.platform }}-${{ matrix.arch }}/bin
+        run: |
+          if [ "${{ matrix.platform }}" = "windows" ]; then
+            mv opencode.exe opencode-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          else
+            mv opencode opencode-${{ matrix.platform }}-${{ matrix.arch }}
+          fi
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            opencode/packages/opencode/dist/opencode-${{ matrix.platform }}-${{ matrix.arch }}/bin/*
+            opencode/packages/opencode/dist/opencode-${{ matrix.platform }}-${{ matrix.arch }}/bin/opencode-*
