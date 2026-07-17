@@ -1,76 +1,30 @@
-# Notices
+# NOTICE
 
-This project may include modified portions of OpenCode in later stages.
+Browser Code 基于 [OpenCode](https://github.com/sst/opencode)（MIT License）深度定制。
+完整的上游源码以 vendored fork 形式位于 `opencode/` 目录，上游版权声明保留于 [`opencode/LICENSE`](opencode/LICENSE)。
+本项目与 OpenCode 团队无隶属、赞助或背书关系。
 
-OpenCode:
-- Repository: https://github.com/anomalyco/opencode
-- License: MIT
-- Copyright: See original OpenCode repository
+## 相对上游的主要定制
 
-This project is not affiliated with, sponsored by, or endorsed by the OpenCode team.
+- **Browser Code 化**：CLI 更名 `browser-code`，配置目录 `.browser-code/`，环境变量前缀 `BROWSER_CODE_*`
+- **ProReader 研究子代理**：12-provider 研究管线（Plan → Execute → Synthesize），独立上下文，置信度标注
+- **LLM Wiki 知识库**：vault/（Markdown 源）+ kb/（claims/topics/entities）+ SQLite FTS5 索引 + 捕获管线（harness/）
+- **自定义工具**：`proreader` / `kb_manage` / `save_markdown_note` / `search_vault` / `rescue`（`.browser-code/tool/`）
+- **学术子代理**：人类学家 / 地理学家 / 历史学家 / 心理学家
+- **CDP 救援通道**：动态页面抓取失败后的 Chrome DevTools Protocol 兜底
+- **V1 runLoop 硬截断**：max steps 时强制 `toolChoice: none` 防止无限循环
+- **多平台分发**：npm + postinstall 二进制下载 + GitHub Actions 跨平台构建
 
-## Current Dependency Record
+## 上游文件清理说明
 
-- OpenCode
-  - Use: architecture reference for runtime/provider/permission/session design
-  - Link: https://github.com/anomalyco/opencode
-  - License: MIT
-  - Copied code: no direct copied file recorded yet
+为保持仓库身份清晰，已移除上游的贡献者文档（AGENTS.md）、多语言 README 与统计文件；
+保留上游英文 README（`opencode/README.md`）用于溯源，保留 LICENSE 履行 MIT 义务。
 
-- Chrome Side Panel API
-  - Use: browser side panel integration
-  - Link: https://developer.chrome.com/docs/extensions/reference/api/sidePanel
-  - License: official platform API documentation
-  - Copied code: no
+## 依赖记录
 
-- Mozilla Readability
-  - Use: article extraction in `packages/tool-web`
-  - Link: https://github.com/mozilla/readability
-  - License: see upstream package license
-  - Copied code: no direct copied file recorded yet
-
-- Turndown
-  - Use: HTML to Markdown conversion in `packages/tool-web`
-  - Link: https://github.com/mixmark-io/turndown
-  - License: MIT
-  - Copied code: no direct copied file recorded yet
-
-- MCP Specification
-  - Use: read-only MCP knowledge server design
-  - Link: https://modelcontextprotocol.io/specification
-  - License: specification reference
-  - Copied code: no
-
-- ffmpeg
-  - Use: wrapped high-risk audio extraction tool only
-  - Link: https://ffmpeg.org/
-  - License: external tool, see upstream distribution
-  - Copied code: no
-
-- curl
-  - Use: public asset download boundary reference
-  - Link: https://curl.se/
-  - License: external tool, see upstream distribution
-  - Copied code: no
-
-- yt-dlp
-  - Use: reserved as a future optional media fallback reference
-  - Link: https://github.com/yt-dlp/yt-dlp
-  - License: see upstream distribution
-  - Copied code: no
-
-## Copied Code Status
-
-No direct third-party source file copy has been recorded in this repository yet.
-If a later stage copies or materially adapts external source code, add a filled record below.
-
-## Copied Code Record
-
-- Source project:
-- Source URL:
-- Source file path:
-- Destination file path:
-- License:
-- Copied date:
-- Modified: yes/no
-- Notes:
+- OpenCode — vendored fork（`opencode/`），MIT，https://github.com/sst/opencode
+- Mozilla Readability — 文章正文提取（`packages/tool-web`），https://github.com/mozilla/readability
+- Turndown — HTML 转 Markdown（`packages/tool-web`），MIT，https://github.com/mixmark-io/turndown
+- MCP Specification — MCP 知识服务设计参考，https://modelcontextprotocol.io/specification
+- ffmpeg / curl / yt-dlp — 外部工具封装，各自遵循上游分发许可
+- Chrome DevTools Protocol — CDP 救援通道，官方平台 API
