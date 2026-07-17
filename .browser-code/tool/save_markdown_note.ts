@@ -1,5 +1,5 @@
 import { join, extname } from "node:path"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs"
 import { createHash } from "node:crypto"
 import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
 
@@ -23,6 +23,28 @@ function slugify(text: string) {
 
 function shortHash(text: string) {
   return createHash("sha1").update(text).digest("hex").slice(0, 8)
+}
+
+/**
+ * 剥离内容自带的 frontmatter，避免双层 frontmatter 嵌套。
+ * 同时让内容 hash 只针对正文计算，不受 agent 是否附带元数据影响。
+ */
+function stripFrontmatter(content: string): string {
+  const m = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/)
+  return m ? content.slice(m[0].length).replace(/^\s+/, "") : content
+}
+
+/**
+ * 按 (日期 + slug) 查重：同一天同标题的笔记视为同一篇，
+ * 防止 LLM 重试时因内容字节差异绕过 hash 去重产生重复文件。
+ */
+function findBySlug(subDir: string, dirName: string, today: string, slug: string): string | null {
+  if (!existsSync(subDir)) return null
+  const prefix = `${today}__${slug}__`
+  for (const file of readdirSync(subDir)) {
+    if (file.endsWith(".md") && file.startsWith(prefix)) return `vault/${dirName}/${file}`
+  }
+  return null
 }
 
 function buildFrontmatter(meta: Record<string, unknown>) {
@@ -79,16 +101,22 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
 
     if (isLocalMode) {
       // ── Local file shortcut mode ──
-      const contentHash = shortHash(args.content as string)
+      const body = stripFrontmatter(args.content as string)
+      const contentHash = shortHash(body)
       const localSourceUrl = `local://${contentHash}`
       const today = new Date().toISOString().slice(0, 10)
       const slug = slugify(args.title || "untitled")
       const filename = `${today}__${slug}__${contentHash.slice(0, 8)}.md`
 
-      // Dedup by content hash (not URL)
+      // Dedup layer 1: same date + same slug = same note (survives content-byte drift on retry)
+      const slugMatch = findBySlug(subDir, dirName, today, slug)
+      if (slugMatch) {
+        return { filePath: slugMatch, deduped: true, mode: "local", indexUpdated: false }
+      }
+
+      // Dedup layer 2: content hash
       let existingPath: string | null = null
       if (existsSync(subDir)) {
-        const { readdirSync } = await import("node:fs")
         const files = readdirSync(subDir).filter((f) => f.endsWith(".md"))
         for (const file of files) {
           if (file.includes(contentHash.slice(0, 8))) {
@@ -110,7 +138,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         captured_at: new Date().toISOString(),
       })
 
-      const fullContent = frontmatter + (args.content as string)
+      const fullContent = frontmatter + body
       const filePath = join(subDir, filename)
       writeFileSync(filePath, fullContent, "utf8")
       rebuildVaultIndex()
@@ -124,10 +152,9 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
     }
 
     // ── Standard web-URL mode ──
-    // Dedup: check for existing note with same source_url
+    // Dedup layer 1: existing note with same source_url
     let existingPath: string | null = null
     if (args.source_url && existsSync(subDir)) {
-      const { readdirSync } = await import("node:fs")
       const files = readdirSync(subDir).filter((f) => f.endsWith(".md"))
       for (const file of files) {
         const content = readFileSync(join(subDir, file), "utf8")
@@ -144,7 +171,15 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
     // Generate filename
     const today = new Date().toISOString().slice(0, 10)
     const slug = slugify(args.title || "untitled")
-    const hash = shortHash(args.content + (args.source_url || ""))
+
+    // Dedup layer 2: same date + same slug (survives URL normalization differences)
+    const slugMatch = findBySlug(subDir, dirName, today, slug)
+    if (slugMatch) {
+      return { filePath: slugMatch, deduped: true, mode: "web", indexUpdated: false }
+    }
+
+    const body = stripFrontmatter(args.content as string)
+    const hash = shortHash(body + (args.source_url || ""))
     const filename = `${today}__${slug}__${hash}.md`
 
     // Build frontmatter
@@ -157,7 +192,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
       captured_at: new Date().toISOString(),
     })
 
-    const fullContent = frontmatter + args.content
+    const fullContent = frontmatter + body
     const filePath = join(subDir, filename)
     writeFileSync(filePath, fullContent, "utf8")
 

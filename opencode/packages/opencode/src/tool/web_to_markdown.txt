@@ -9,6 +9,6 @@
 - Image localization (localize_images=true + assets_dir): downloads each image into assets_dir, rewrites markdown image links to local relative paths so notes stay self-contained after the source page changes. Reports images_downloaded and images_failed.
 - Extracts resource links from HTML (images as object_asset, links as webpage_reference)
 - Provides quality indicators: word_count, extraction_method, is_probably_article, quality_gate, images_localized, images_downloaded
-- Read-only for the note itself: does not write the markdown note to the vault (use the write tool or save_markdown_note for that). When localize_images is true it does write downloaded image files into assets_dir.
+- Read-only for the note itself: does not write the markdown note to the vault (use save_markdown_note for that — not the generic write tool). When localize_images is true it does write downloaded image files into assets_dir.
 - Requires either html content to be passed, OR just a url (the tool will self-fetch the page when html is omitted — useful when webfetch output is too large to thread back through tool params)
 - Uses @mozilla/readability for article extraction, turndown + GFM plugin for HTML-to-markdown conversion

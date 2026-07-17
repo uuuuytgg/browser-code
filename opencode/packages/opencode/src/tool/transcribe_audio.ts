@@ -43,9 +43,25 @@ export const TranscribeAudioTool = Tool.define(
             return { title: "Failed", output: "VOLC_ASR_API_KEY (or VOLC_ASR_KEY) not set", metadata: { ok: false, error: "VOLC_ASR_API_KEY not set" } }
           }
 
-          // Find volc_asr.py — checked into the repo root D:\ClaudeData\browser agent\
-          const repoRoot = path.resolve(__dirname, "../../../../")
-          const scriptPath = path.join(repoRoot, "volc_asr.py")
+          // Find volc_asr.py — search order handles both dev and compiled-binary scenarios:
+          // 1. cwd (running inside the repo / user project that has the script)
+          // 2. BROWSER_CODE_CONFIG_DIR parent (npm package root, set by bin/browser-code.cjs)
+          // 3. __dirname walk-up (dev mode via `bun run` — virtual bunfs path in compiled binary)
+          const candidates = [
+            path.join(process.cwd(), "volc_asr.py"),
+            ...(process.env.BROWSER_CODE_CONFIG_DIR
+              ? [path.join(path.dirname(process.env.BROWSER_CODE_CONFIG_DIR), "volc_asr.py")]
+              : []),
+            path.join(path.resolve(__dirname, "../../../../"), "volc_asr.py"),
+          ]
+          const scriptPath = candidates.find((p) => fs.existsSync(p))
+          if (!scriptPath) {
+            return {
+              title: "Failed",
+              output: `volc_asr.py not found. Searched: ${candidates.join("; ")}`,
+              metadata: { ok: false, error: "volc_asr.py not found" },
+            }
+          }
 
           const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "bc-asr-"))
           try {
