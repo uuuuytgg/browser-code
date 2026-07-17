@@ -1,6 +1,6 @@
 {
   "name": "browser-code",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Browser Code — web content capture, research, and knowledge management agent",
   "license": "MIT",
   "private": false,
@@ -25,8 +25,15 @@
     "README.md",
     "package.json"
   ],
-  "os": ["win32", "darwin", "linux"],
-  "cpu": ["x64", "arm64"],
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
     "build": "echo \"build via opencode/packages/opencode: bun run script/build.ts --single\"",
@@ -49,7 +56,15 @@
     "type": "git",
     "url": "https://github.com/uuuuytgg/browser-code"
   },
-  "keywords": ["browser", "web", "archive", "knowledge-base", "agent", "research", "opencode"],
+  "keywords": [
+    "browser",
+    "web",
+    "archive",
+    "knowledge-base",
+    "agent",
+    "research",
+    "opencode"
+  ],
   "author": "lisiyuan968@gmail.com",
   "devDependencies": {
     "@types/node": "^24.0.10",
