@@ -95,6 +95,9 @@
       "mode": "subagent",
       "description": "Browser Code research expert. Receives research tasks, generates plans via the proreader tool, executes searches across 12 providers, spawns worker subagents for parallel batch work, synthesizes results. Returns structured findings — does NOT write vault/kb/sqlite.",
       "model": "deepseek/deepseek-v4-flash",
+      // 六要素专属系统提示词（12-provider 方法论/输出契约/置信度矩阵/边界场景）。
+      // {file:} 相对 .browser-code/ 解析，内容经 JSON 转义注入。
+      "prompt": "{file:agent/proreader.txt}",
       "permission": {
         "proreader": "allow",
         "websearch": "allow",
@@ -127,7 +130,12 @@
         "task": "deny",
         "todowrite": "deny",
         "websearch": "deny",
-        "webfetch": "deny"
+        "webfetch": "deny",
+        "save_markdown_note": "deny",
+        "kb_manage": "deny",
+        "search_vault": "deny",
+        "proreader": "deny",
+        "rescue": "deny"
       },
       "steps": 15
     },
@@ -144,7 +152,12 @@
         "task": "deny",
         "todowrite": "deny",
         "websearch": "deny",
-        "webfetch": "deny"
+        "webfetch": "deny",
+        "save_markdown_note": "deny",
+        "kb_manage": "deny",
+        "search_vault": "deny",
+        "proreader": "deny",
+        "rescue": "deny"
       },
       "steps": 15
     },
@@ -161,7 +174,12 @@
         "task": "deny",
         "todowrite": "deny",
         "websearch": "deny",
-        "webfetch": "deny"
+        "webfetch": "deny",
+        "save_markdown_note": "deny",
+        "kb_manage": "deny",
+        "search_vault": "deny",
+        "proreader": "deny",
+        "rescue": "deny"
       },
       "steps": 15
     },
@@ -178,7 +196,12 @@
         "task": "deny",
         "todowrite": "deny",
         "websearch": "deny",
-        "webfetch": "deny"
+        "webfetch": "deny",
+        "save_markdown_note": "deny",
+        "kb_manage": "deny",
+        "search_vault": "deny",
+        "proreader": "deny",
+        "rescue": "deny"
       },
       "steps": 15
     }

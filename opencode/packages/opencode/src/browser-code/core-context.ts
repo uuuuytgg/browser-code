@@ -115,7 +115,7 @@ export function buildBrowserCodeCoreContext(input: {
     )
   } else if (phase === "research") {
     lines.push(
-      "ProReader subagent has returned structured results (status, summary, sources, findings, failures, suggestedActions).",
+      "ProReader subagent has returned structured results (status, summary, sources, findings, failures, suggestedSaveTargets).",
       "Review findings with the user. If save desired, confirm then write to vault/kb.",
       "For failures: CDP-rescuable → headless Chrome fetch → save_markdown_note; non-rescuable → mark unavailable.",
     )

@@ -552,7 +552,7 @@ const kbManageTool: ToolDefinition = tool({
   Params: title, source_url, source_type (webpage|video|transcript|document|manual),
           summary, key_points[], details?, related_topics[]?, vault_path
 - **save_claims**: Create kb/claims/{name}.claims.md with standard claim format.
-  Params: source_file ("kb/sources/xxx.md"), claims[{type, text}]
+  Params: source_file ("kb/sources/xxx.md"), claims[{type, text, confidence, source_ref?}] — confidence (high|medium|low) is REQUIRED per claim
   Claim types: definition, mechanism, constraint, comparison, conclusion, open-question, warning, procedure
 - **link_topic**: Create or update kb/topics/{slug}.md. New topics created from template;
   existing topics updated via managed-block regions.

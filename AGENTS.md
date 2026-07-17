@@ -30,7 +30,11 @@
 
 **违规自查：** 每次准备调用 Read/Grep/webfetch 前，先问自己"这个能不能丢给 general？"——答案几乎永远是能。
 
-**唯一豁免：** 主 Agent 可以直接执行 ≤3 步的精确小操作（如读一个 20 行配置、查一条 KB 记录），以及子代理返回结果后的批量 kb_manage 写入。
+**唯一豁免：**
+1. ≤3 步的精确小操作（如读一个 20 行配置、查一条 KB 记录）
+2. 子代理返回结果后的批量 kb_manage 写入
+
+**注意：** 单 URL 捕获（webfetch → web_to_markdown → save_markdown_note）本质是繁琐抓取劳动，**必须丢给 general 子代理执行**，主 Agent 只下发任务和验收结果。
 
 ### 铁律2：研究任务必须走 ProReader
 
