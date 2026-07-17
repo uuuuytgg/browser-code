@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  // 完整 agent 约束文件。npm 全局安装场景由 BROWSER_CODE_CONFIG_DIR 全局层加载；
-  // 本地开发场景由此相对路径从 cwd 向上匹配加载。两层去重，不会重复注入。
-  "instructions": [".browser-code/AGENTS.md"],
+  // 约束文件唯一源在项目根 AGENTS.md（本地开发经 findUp 加载）。
+  // 此处 .browser-code/AGENTS.md 是发布用同步副本，npm 全局安装场景
+  // 由 BROWSER_CODE_CONFIG_DIR 全局层自动加载，无需 instructions 声明。
   "mcp": {
     "browsercode-knowledge": {
       "type": "local",

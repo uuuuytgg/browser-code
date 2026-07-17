@@ -17,8 +17,8 @@ Browser Code 基于 [OpenCode](https://github.com/sst/opencode)（MIT License）
 
 ## 上游文件清理说明
 
-为保持仓库身份清晰，已移除上游的贡献者文档（AGENTS.md）、多语言 README 与统计文件；
-保留上游英文 README（`opencode/README.md`）用于溯源，保留 LICENSE 履行 MIT 义务。
+为保持仓库身份清晰，已移除上游的贡献者文档（AGENTS.md）、全部 README（含多语言版）与统计文件；
+上游溯源信息以本文件的依赖记录为准，保留 LICENSE 履行 MIT 义务。
 
 ## 依赖记录
 
