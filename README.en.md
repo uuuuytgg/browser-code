@@ -11,7 +11,7 @@
 [![license](https://img.shields.io/badge/license-MIT-6e7448)](LICENSE)
 [![platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-15140f)](#requirements)
 
-[中文](README.md) · [Landing Page](website/index.html) · [MCP Setup Guide](wiki/SETUP.md)
+[中文](README.md) · [Landing Page](https://uuuuytgg.github.io/browser-code/) · [MCP Setup Guide](wiki/SETUP.md)
 
 <img src="website/assets/terminal-screenshot.png" alt="Browser Code terminal screenshot" width="720" />
 

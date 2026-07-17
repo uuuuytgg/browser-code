@@ -11,7 +11,7 @@
 [![license](https://img.shields.io/badge/license-MIT-6e7448)](LICENSE)
 [![platforms](https://img.shields.io/badge/平台-Windows%20%7C%20macOS%20%7C%20Linux-15140f)](#环境要求)
 
-[English](README.en.md) · [宣传页](website/index.html) · [MCP 安装指南](wiki/SETUP.md)
+[English](README.en.md) · [宣传页](https://uuuuytgg.github.io/browser-code/) · [MCP 安装指南](wiki/SETUP.md)
 
 <img src="website/assets/terminal-screenshot.png" alt="Browser Code 终端截图" width="720" />
 
