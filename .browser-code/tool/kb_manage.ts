@@ -871,6 +871,9 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
     query: tool.schema.string().optional()
       .describe("(search / context) Search query string."),
 
+    mode: tool.schema.enum(["keyword", "semantic", "hybrid"]).optional()
+      .describe("(search) Search mode. Default 'hybrid' using RRF(60) fusion of FTS5 + semantic embeddings."),
+
     target: tool.schema.string().optional()
       .describe("(backlinks/outlinks/conflicts) Target file path, e.g. kb/claims/xxx.md or kb/topics/xxx.md"),
   },
@@ -949,7 +952,8 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         if (!args.query) {
           throw new Error("search requires: query")
         }
-        const result = await handleSearch(args.query as string)
+        const mode = (args.mode as string) || "hybrid"
+        const result = await handleSearch(args.query as string, mode)
         return JSON.stringify(result, null, 2)
       }
 
