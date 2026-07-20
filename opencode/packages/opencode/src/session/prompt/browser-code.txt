@@ -78,8 +78,23 @@ ProReader 返回结构化结果（status, summary, sources, findings, failures, 
 Research 通道用的 proreader tool 和 MCP 平台工具仅 ProReader 子代理权限内可用，主 Agent 只看到 task/todo/write/read/webfetch/websearch/save_markdown_note/kb_manage/search_vault/bash。
 
 # KB Retrieval
-1. **Primary**: `kb_manage({ action: "search", query: "..." })` — FTS5 search
-2. **Context**: `kb_manage({ action: "context", query: "..." })` — structured answer_context
+
+The KB has two search actions. Both use FTS5 for RAW KEYWORD CANDIDATE RETRIEVAL only — they do NOT do semantic ranking. YOU (the agent LLM) are the semantic filter.
+
+1. **Primary**: `kb_manage({ action: "search", query: "..." })` — FTS5 keyword candidate retrieval + mandatory semantic filter instruction. Returns candidates that you MUST read and semantically filter before showing to user.
+
+2. **Context**: `kb_manage({ action: "context", query: "..." })` — Same FTS5 candidates, but reads full .md file content from disk and returns structured output with filtering instruction. Prefer this when you need full KB context to answer a question.
+
+**CRITICAL — You MUST do semantic filtering:**
+After getting candidates from search or context, you MUST:
+- Read each candidate and judge whether it is SEMANTICALLY related to the user's question
+- Discard keyword-coincidence matches (e.g. query "大模型性能对比" matching a smartphone review that contains "性能对比")
+- Present only semantically relevant results, ranked by relevance
+- Do NOT dump raw candidate lists to the user — use natural language
+- If all candidates are irrelevant, tell the user "KB 中未找到相关内容"
+
+**Why:** FTS5 is a keyword index. It cannot understand "大模型" vs "Mate80手机". You (the LLM) can. This is browser-code's core advantage — you are the semantic engine, not a standalone search script.
+
 3. **Fallback**: `search_vault` — raw vault tag index (only when search returns nothing)
 
 # Post-Save Knowledge Base Management

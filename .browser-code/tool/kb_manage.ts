@@ -595,45 +595,141 @@ async function handleAfterCapture(vaultPath: string): Promise<{
 }
 
 /**
- * FTS5 搜索 kb/claims + kb/topics + kb/entities + kb/sources
- * 支持 keyword / semantic / hybrid 模式（默认 hybrid）。
+ * In-process KB candidate retrieval.
+ * Uses FTS5 for broad recall, reads actual .md files for full content.
+ *
+ * CRITICAL: This is a PRE-FILTER only. The agent (LLM) MUST semantically
+ * filter these candidates — FTS5 only does keyword matching, not semantic
+ * understanding. The returned instruction explains how.
  */
-async function handleSearch(query: string, mode: string = "hybrid"): Promise<{
+async function handleSearch(query: string, _mode: string = "hybrid"): Promise<{
   results: string
   resultCount: number
 }> {
-  const modeFlag = mode === "keyword" ? "" : `--${mode}`
-  const args = modeFlag ? [query, modeFlag] : [query]
-  const result = await execCommand("bun", [
-    "run", "harness/search.ts", ...args,
-  ])
-  const lines = result.stdout.split("\n").filter((l) => l.trim())
+  const ctx = await handleContext(query)
+
+  if (ctx.candidates.length === 0) {
+    return { results: "KB 中未找到匹配内容。尝试换个关键词或先运行 after_capture 入库。", resultCount: 0 }
+  }
+
+  const lines = ctx.candidates.map((c, i) => {
+    const preview = c.content.slice(0, 300).replace(/\n/g, " ")
+    return `${i + 1}. [${c.kind}] ${c.path} — ${c.title}\n   ${preview}...`
+  })
+
+  const results = [
+    `FTS 候选检索结果（共 ${ctx.candidates.length} 条，未经语义过滤）：`,
+    "",
+    ...lines,
+    "",
+    ctx.instruction,
+  ].join("\n")
+
   return {
-    results: result.stdout.slice(0, 3000),
-    resultCount: lines.length,
+    results: results.slice(0, 4000),
+    resultCount: ctx.candidates.length,
   }
 }
 
 /**
- * 生成结构化回答上下文
+ * Generate structured KB context for the agent.
+ *
+ * Step 1: In-process FTS5 candidate retrieval (broad keyword recall)
+ * Step 2: Read actual .md files from disk for full content
+ * Step 3: Return candidates + explicit instruction for the agent
+ *         to apply its LLM capabilities for semantic filtering.
+ *
+ * The FTS5 step is ONLY a pre-filter. The agent's LLM brain is the
+ * real semantic ranker — this is browser-code's core advantage over
+ * standalone search tools.
  */
 async function handleContext(query: string): Promise<{
-  outputPath: string
-  output: string
+  candidates: Array<{
+    path: string
+    kind: string
+    title: string
+    content: string
+  }>
+  instruction: string
 }> {
-  const result = await execCommand("bun", [
-    "run", "harness/make_answer_context.ts", query,
-  ])
-
-  const contextPath = join(process.cwd(), ".tmp", "answer_context.md")
-  let contextContent = ""
-  if (existsSync(contextPath)) {
-    contextContent = readFileSync(contextPath, "utf8").slice(0, 5000)
+  const dbPath = resolve(process.cwd(), "index/browsercode.sqlite")
+  if (!existsSync(dbPath)) {
+    return { candidates: [], instruction: "KB 索引不存在。先运行 after_capture 或 kb:index 构建索引。" }
   }
 
+  const db = new Database(dbPath)
+
+  // Build FTS5 query from user input
+  const cleaned = query.replace(/[^\w\s一-鿿]/g, " ").trim()
+  const tokens = cleaned.split(/\s+/).filter(Boolean)
+  const ftsQuery = tokens.length === 0 ? query
+    : tokens.length === 1 ? tokens[0]
+    : tokens.map(t => t.length > 1 ? `"${t}"` : t).join(" OR ")
+
+  let rows: Array<{path: string; kind: string; title: string; content: string}> = []
+
+  // Primary: FTS5 ranked search (broad recall, not final answer)
+  try {
+    rows = db.query(`
+      SELECT d.path, d.kind, d.title, d.content
+      FROM documents_fts f
+      JOIN documents d ON d.id = f.id
+      WHERE documents_fts MATCH $query
+      ORDER BY rank
+      LIMIT 20
+    `).all({ $query: ftsQuery }) as any[]
+  } catch {
+    // FTS5 may fail on special chars — fall through to LIKE
+  }
+
+  // Fallback: LIKE search for CJK coverage (FTS5 doesn't segment Chinese well)
+  if (rows.length < 5) {
+    try {
+      const escapedQuery = query.replace(/%/g, "\\%").replace(/_/g, "\\_")
+      const likeRows = db.query(`
+        SELECT path, kind, title, content FROM documents
+        WHERE content LIKE $q OR title LIKE $q
+        LIMIT 20
+      `).all({ $q: `%${escapedQuery}%` }) as any[]
+
+      const seen = new Set(rows.map(r => r.path))
+      for (const r of likeRows) {
+        if (!seen.has(r.path)) { rows.push(r); seen.add(r.path) }
+      }
+    } catch {}
+  }
+
+  db.close()
+
+  // Read actual .md files from disk for complete content
+  // (DB may store truncated content; file always has full text)
+  const candidates = rows.map(r => {
+    const fullPath = resolve(process.cwd(), r.path)
+    let content = r.content || ""
+    if (existsSync(fullPath)) {
+      try {
+        content = readFileSync(fullPath, "utf8")
+      } catch {}
+    }
+    return {
+      path: r.path,
+      kind: r.kind,
+      title: r.title,
+      content: content.slice(0, 2000), // per-candidate limit to avoid context overflow
+    }
+  })
+
   return {
-    outputPath: ".tmp/answer_context.md",
-    output: contextContent || result.stdout.slice(0, 3000),
+    candidates,
+    instruction: [
+      `⚠️ 以上是 FTS 关键词候选检索结果（共 ${candidates.length} 条），仅做关键词粗筛，未经语义验证。`,
+      `你**必须**用你的 LLM 语义理解能力对候选做二次过滤：`,
+      `1. 逐条判断是否与用户问题"${query}"语义相关`,
+      `2. 剔除关键词巧合匹配但语义无关的条目（如搜"大模型性能对比"不应返回手机评测）`,
+      `3. 只向用户展示语义相关的条目，按相关度从高到低排序`,
+      `4. 用自然语言呈现结果，不要直接输出原始候选列表`,
+      `5. 若全部不相关，诚实告知用户"KB 中未找到相关内容"`,
+    ].join("\n"),
   }
 }
 
@@ -775,9 +871,10 @@ const kbManageTool: ToolDefinition = tool({
   Returns validation result (hard blocks + soft warnings).
 
 ### Read side
-- **search**: Search across kb/claims+topics+entities+sources. Supports keyword, semantic, hybrid (default).
-  Params: query, mode? ("keyword"|"semantic"|"hybrid", default "hybrid")
-- **context**: Generate structured answer context (Claims→Topics→Entities→Sources).
+- **search**: FTS5 candidate retrieval (keyword pre-filter only). Returns candidates + mandatory instruction for the agent to apply LLM semantic filtering.
+  Params: query, mode? (ignored, kept for compat)
+- **context**: In-process FTS5 broad recall → read full .md files → return candidates with explicit instruction.
+  **The agent MUST use its LLM capabilities to semantically filter candidates before presenting results.**
   Params: query
 
 ### Graph side
@@ -872,7 +969,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
       .describe("(search / context) Search query string."),
 
     mode: tool.schema.enum(["keyword", "semantic", "hybrid"]).optional()
-      .describe("(search) Search mode. Default 'hybrid' using RRF(60) fusion of FTS5 + semantic embeddings."),
+      .describe("(search) Search mode. Ignored — agent LLM semantic filtering is the real ranker."),
 
     target: tool.schema.string().optional()
       .describe("(backlinks/outlinks/conflicts) Target file path, e.g. kb/claims/xxx.md or kb/topics/xxx.md"),
@@ -962,7 +1059,22 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
           throw new Error("context requires: query")
         }
         const result = await handleContext(args.query as string)
-        return JSON.stringify(result, null, 2)
+        const body = [
+          `# KB Context for: "${args.query}"`,
+          ``,
+          result.instruction,
+          ``,
+          `---`,
+          ``,
+          ...result.candidates.map((c, i) =>
+            `### ${i + 1}. [${c.kind}] ${c.path}\n**${c.title}**\n\n${c.content}`
+          ),
+        ].join("\n")
+        return JSON.stringify({
+          candidates: result.candidates,
+          instruction: result.instruction,
+          output: body.slice(0, 8000),
+        }, null, 2)
       }
 
       case "backlinks": {
