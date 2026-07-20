@@ -92,6 +92,27 @@ export function openDb(): Database {
   db.run("CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_path)");
   db.run("CREATE INDEX IF NOT EXISTS idx_links_source ON links(source_path)");
 
+  // topic_stats（P4 合成/推演状态追踪）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS topic_stats (
+      topic_path TEXT PRIMARY KEY,
+      claim_count INTEGER NOT NULL DEFAULT 0,
+      last_synthesized_at TEXT,
+      last_speculated_at TEXT,
+      stale_threshold_days INTEGER NOT NULL DEFAULT 90,
+      UNIQUE(topic_path)
+    )
+  `);
+
+  // claim_embeddings（P3 语义搜索）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS claim_embeddings (
+      claim_id TEXT PRIMARY KEY,
+      source_path TEXT NOT NULL,
+      embedding BLOB NOT NULL
+    )
+  `);
+
   return db;
 }
 

@@ -596,13 +596,16 @@ async function handleAfterCapture(vaultPath: string): Promise<{
 
 /**
  * FTS5 搜索 kb/claims + kb/topics + kb/entities + kb/sources
+ * 支持 keyword / semantic / hybrid 模式（默认 hybrid）。
  */
-async function handleSearch(query: string): Promise<{
+async function handleSearch(query: string, mode: string = "hybrid"): Promise<{
   results: string
   resultCount: number
 }> {
+  const modeFlag = mode === "keyword" ? "" : `--${mode}`
+  const args = modeFlag ? [query, modeFlag] : [query]
   const result = await execCommand("bun", [
-    "run", "harness/search.ts", query,
+    "run", "harness/search.ts", ...args,
   ])
   const lines = result.stdout.split("\n").filter((l) => l.trim())
   return {
@@ -634,7 +637,118 @@ async function handleContext(query: string): Promise<{
   }
 }
 
-// ── 完整 Tool Definition ──
+/**
+ * 检查 topic 合成状态：加载同 topic 全部 claims，对比 topic_stats 判断是否需合成。
+ * 返回结构化结果供主 Agent 决定是否 spawn general 子代理执行 LLM 合成。
+ */
+function handleSynthesize(target: string): {
+  needsSynthesis: boolean
+  newClaimsCount: number
+  totalClaimCount: number
+  synthesisPrompt: string
+} {
+  const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+
+  // 查找所有指向该 topic 的 claim links
+  const claimLinks = db.query(`
+    SELECT source_path FROM links
+    WHERE target_path = ? AND source_type = 'claim' AND link_kind = 'ref'
+  `, [target]).all() as Array<{source_path: string}>
+
+  // 读取每个 claim 文件内容提取文本
+  const claimTexts: string[] = []
+  for (const link of claimLinks) {
+    const fullPath = resolve(process.cwd(), link.source_path)
+    if (existsSync(fullPath)) {
+      const content = readFileSync(fullPath, "utf8")
+      const lines = content.split("\n").filter(l => l.trim().startsWith("- [") && l.includes("]"))
+      for (const line of lines) {
+        const afterBracket = line.slice(line.indexOf("]") + 1).trim()
+        const emdash = afterBracket.indexOf("—")
+        const text = emdash >= 0 ? afterBracket.slice(0, emdash).trim() : afterBracket
+        claimTexts.push(text)
+      }
+    }
+  }
+
+  // 查询 topic_stats 表
+  const stat = db.query(`SELECT claim_count, last_synthesized_at FROM topic_stats WHERE topic_path = ?`, [target]).get() as {claim_count: number; last_synthesized_at: string} | undefined
+  db.close()
+
+  const totalClaimCount = claimTexts.length
+  let newClaimsCount = totalClaimCount
+  if (stat) {
+    newClaimsCount = Math.max(0, totalClaimCount - stat.claim_count)
+  }
+
+  const needsSynthesis = newClaimsCount > 0 && totalClaimCount > 0
+
+  const synthesisPrompt = `You are a knowledge synthesis assistant. Given the following claims about topic "${target}", produce a consolidated synthesis.
+
+Rules:
+1. Merge duplicate or overlapping claims into concise statements
+2. Preserve contradictory claims with appropriate caveats
+3. Assign each synthesized claim a type from: definition, mechanism, constraint, comparison, conclusion, open-question, warning, procedure
+4. Source each synthesized claim as "synthesized from [C001][C002]..." using the original claim IDs
+5. Status must be "synthesized"
+6. Confidence is the lowest confidence among participating claims, demoted by one level
+
+Claims to synthesize (${totalClaimCount} total, ${newClaimsCount} new since last synthesis):
+${claimTexts.map((t, i) => `[C${i + 1}] ${t}`).join("\n")}`
+
+  return { needsSynthesis, newClaimsCount, totalClaimCount, synthesisPrompt }
+}
+
+/**
+ * 检查 topic 推演可能性：需至少 3 条 related claims，返回 speculation prompt。
+ * 所有产物强制 confidence=low，写入 topic 页 LLM 推演 managed block。
+ */
+function handleSpeculate(target: string): {
+  canSpeculate: boolean
+  claimCount: number
+  speculationPrompt: string
+} {
+  const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+
+  const claimLinks = db.query(`
+    SELECT source_path FROM links
+    WHERE target_path = ? AND source_type = 'claim' AND link_kind = 'ref'
+  `, [target]).all() as Array<{source_path: string}>
+  db.close()
+
+  // 读取 claim 文本
+  const claimTexts: string[] = []
+  for (const link of claimLinks) {
+    const fullPath = resolve(process.cwd(), link.source_path)
+    if (existsSync(fullPath)) {
+      const content = readFileSync(fullPath, "utf8")
+      const lines = content.split("\n").filter(l => l.trim().startsWith("- [") && l.includes("]"))
+      for (const line of lines) {
+        const afterBracket = line.slice(line.indexOf("]") + 1).trim()
+        const emdash = afterBracket.indexOf("—")
+        const text = emdash >= 0 ? afterBracket.slice(0, emdash).trim() : afterBracket
+        claimTexts.push(text)
+      }
+    }
+  }
+
+  const claimCount = claimTexts.length
+  const canSpeculate = claimCount >= 3
+
+  const speculationPrompt = `You are a knowledge speculation assistant. Based on the following claims about topic "${target}", generate plausible extrapolations or hypotheses.
+
+CRITICAL BOUNDARIES:
+1. All output must have confidence=low — these are speculations, not facts
+2. At least 3 related claims are required (${claimCount} available)
+3. Output must be formatted for the "LLM 推演" managed block in the topic page
+4. Never intermix speculations with factual claims
+5. Clearly label each speculation with "推演：" prefix
+
+Claims to reason from:
+${claimTexts.map((t, i) => `[C${i + 1}] ${t}`).join("\n")}`
+
+  return { canSpeculate, claimCount, speculationPrompt }
+}
 
 const kbManageTool: ToolDefinition = tool({
   description: `Knowledge base manager. Full pipeline: write → index → search.
@@ -661,8 +775,8 @@ const kbManageTool: ToolDefinition = tool({
   Returns validation result (hard blocks + soft warnings).
 
 ### Read side
-- **search**: FTS5 search across kb/claims(w3)+topics(w2)+entities(w1)+sources(w0).
-  Params: query
+- **search**: Search across kb/claims+topics+entities+sources. Supports keyword, semantic, hybrid (default).
+  Params: query, mode? ("keyword"|"semantic"|"hybrid", default "hybrid")
 - **context**: Generate structured answer context (Claims→Topics→Entities→Sources).
   Params: query
 
@@ -675,6 +789,15 @@ const kbManageTool: ToolDefinition = tool({
 - **conflicts**: Find conflicting claims pointing to the same topic. Requires: target (topic path).
   Example: kb_manage({action: "conflicts", target: "kb/topics/world-model.md"})
 
+### LLM Feedback side
+- **synthesize**: Check if topic has new claims since last synthesis. Returns needsSynthesis boolean + synthesisPrompt with claim text for caller to pass to general subagent.
+  Requires: target (topic path).
+  Example: kb_manage({action: "synthesize", target: "kb/topics/world-model.md"})
+- **speculate**: Check if topic has enough claims (>=3) for LLM speculation. Returns canSpeculate boolean + speculationPrompt.
+  All output confidence=low, writes only to "LLM 推演" managed block.
+  Requires: target (topic path).
+  Example: kb_manage({action: "speculate", target: "kb/topics/world-model.md"})
+
 Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
   args: {
     action: tool.schema
@@ -682,6 +805,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         "save_source", "save_claims", "link_topic", "link_entity",
         "after_capture", "search", "context",
         "backlinks", "outlinks", "orphans", "conflicts",
+        "synthesize", "speculate",
       ])
       .describe("KB action to execute."),
 
@@ -887,6 +1011,18 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         `, [topic]).all() as Array<{a: string; b: string; a_ctx: string; b_ctx: string}>
         db.close()
         return JSON.stringify({ topic, potentialConflicts: rows.map(r => ({ a: r.a, b: r.b })) }, null, 2)
+      }
+
+      case "synthesize": {
+        if (!args.target) throw new Error("synthesize requires: target (topic path)")
+        const result = handleSynthesize(args.target as string)
+        return JSON.stringify(result, null, 2)
+      }
+
+      case "speculate": {
+        if (!args.target) throw new Error("speculate requires: target (topic path)")
+        const result = handleSpeculate(args.target as string)
+        return JSON.stringify(result, null, 2)
       }
 
       default:
