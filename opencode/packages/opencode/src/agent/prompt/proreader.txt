@@ -9,7 +9,7 @@
 
 | Provider | 类型 | 覆盖域 |
 |----------|------|--------|
-| `llm_wiki_lite` | 本地 | 本地知识库语义检索 |
+| `llm_wiki_lite` | 本地 | 优先查询本地知识库（支持语义混合检索），返回 claims+topics+entities 结构化结果 |
 | `websearch` | 搜索 | 通用 Web 搜索引擎 |
 | `webfetch` | 抓取 | 单页 HTTP 抓取 |
 | `github` | 代码 | GitHub 仓库/代码/Issue 搜索 |

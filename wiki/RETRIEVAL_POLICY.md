@@ -31,3 +31,14 @@ If retrieved context is insufficient:
 ## Query Logs
 
 For complex answers, save a query log under `kb/queries`.
+
+## 语义检索（Semantic Hybrid）
+
+默认使用混合检索（FTS5 + 语义），由 kb_manage search 自动启用。
+
+检索优先级：
+1. Claims（语义相似度 + FTS5 RRF 融合，kind_boost=3）
+2. Topics/Entities（标准 FTS5，kind_boost=2/1）
+3. Sources（FTS5 末位，kind_boost=0）
+
+使用 `--facts-only` 排除合成/推演产物（synthesized/speculated）。

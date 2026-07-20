@@ -47,6 +47,8 @@
 - 内容解析 + claims 提取 → **general 子代理**（返回结构化 JSON）
 - 机械写入 → 主 Agent 批量调 kb_manage（这是铁律1的豁免项）
 - claims JSON 直接对齐 kb_manage save_claims 参数：`text` / `type` / `confidence`（high|medium|low）/ `sources`
+- 写完 kb_manage 后执行 phase-2 图谱检查：orphans（死知识）、conflicts（矛盾）、backlinks（补充引用链）
+- 如果同一 topic 自上次处理后新增了 5 条以上新 claims，建议用户运行 synthesize
 
 ### 铁律4：多步任务先 TodoWrite 再执行
 

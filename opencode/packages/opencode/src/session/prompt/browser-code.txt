@@ -90,6 +90,8 @@ After saving a note to vault/, complete the KB pipeline using kb_manage:
 2. `kb_manage({ action: "save_claims", source_file: "kb/sources/xxx.md", claims: [{type: "definition", text: "..."}, ...] })` — creates kb/claims/{name}.claims.md. Claim types: definition, mechanism, constraint, comparison, conclusion, open-question, warning, procedure.
 3. If new topics or entities emerge, use `kb_manage({ action: "link_topic", ... })` or `kb_manage({ action: "link_entity", ... })` to create/update cross-reference pages.
 4. `kb_manage({ action: "after_capture", vault_path: "vault/.../xxx.md" })` — enqueue → process-queue → rebuild FTS5 index. Returns validation result with hard blocks + soft warnings.
+5. Post-KB graph check: use `kb_manage({ action: "orphans" })` to find dead knowledge, `kb_manage({ action: "conflicts", target: "kb/topics/xxx.md" })` for contradictions, and `kb_manage({ action: "backlinks", target: "..." })` to check for missing reference chains. Prompt user to supplement any orphans found.
+6. If the same topic has accumulated 5+ new claims since last processing, suggest running `kb_manage({ action: "synthesize", target: "kb/topics/xxx.md" })` to consolidate.
 
 **Fallback path (manual, for edge cases):**
 - `write("kb/sources/<name>.md", ...)` + `write("kb/claims/<name>.claims.md", ...)` + `bash: bun run kb:after-capture vault/.../xxx.md`
