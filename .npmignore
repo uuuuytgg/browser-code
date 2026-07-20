@@ -1,0 +1,122 @@
+# browser-code — npm publish exclusions
+# Belt-and-suspenders alongside package.json "files" allowlist.
+# If "files" is present, npm only ships listed entries + auto-included files
+# (package.json, README, LICENSE, CHANGELOG, .npmignore). This file excludes
+# sensitive/large/dev content that could leak in via a whitelisted parent dir
+# (e.g. opencode/ or packages/) or via auto-inclusion.
+
+# ─── Local secrets & env ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+*_credential*.json
+*_credential*.json.bak
+cookie*.txt
+*cookies*.txt
+
+# ─── Local KB / user data (runtime-generated, never shipped) ────────────
+*.sqlite
+*.sqlite-*
+index/
+kb/
+vault/
+.tmp/
+temp/
+_tmp_*
+_merge_master/
+
+# ─── Binaries & Python venv (fetched per-platform via postinstall) ──────
+bin/*.exe
+bin/browser-code
+tools/mcp/bin/*.exe
+tools/mcp/bin/*.zip
+tools/mcp/bin/*/
+tools/mcp/.venv/
+tools/mcp/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ─── opencode: example/local config, NOT browser-code skill ─────────────
+# opencode/.opencode/opencode.jsonc wires a local MCP to harness/mcp-server.ts
+# and ships sample agent/command/glossary/skills — dev example only.
+opencode/.opencode/
+# Nested cloned third-party MCP repo (has its own .git + credential backups)
+tools/mcp/adoresever-bilibili-mcp/
+
+# ─── opencode build artifacts & deps (huge, not needed at runtime) ──────
+# Launcher (bin/browser-code.cjs) only spawns the platform binary that
+# scripts/postinstall.js downloads into opencode/packages/opencode/dist/.
+# opencode source/node_modules are dev-only for the published package.
+opencode/node_modules/
+opencode/.turbo/
+opencode/.husky/
+opencode/.vscode/
+opencode/.zed/
+opencode/.github/
+opencode/github/
+opencode/infra/
+opencode/nix/
+opencode/perf/
+opencode/patches/
+opencode/sdks/
+opencode/specs/
+opencode/script/
+opencode/packages/*/node_modules/
+opencode/packages/*/dist/
+opencode/packages/*/test/
+opencode/packages/*/tests/
+opencode/packages/**/*.test.ts
+opencode/packages/**/*.test.js
+opencode/packages/**/*.spec.ts
+opencode/packages/**/.turbo/
+opencode/packages/**/.bun/
+opencode/packages/opencode/dist/
+opencode/packages/opencode/test/
+opencode/packages/opencode/bili_audio.m4s
+opencode/packages/opencode/git/
+# stale bun build-cache dotfiles (~1GB; glob needs no leading dot to match dotfiles in npmignore)
+*.bun-build
+opencode/bun.lock
+opencode/screenshot-uk.png
+
+# ─── packages/ workspace dev cruft (src/ is runtime, this isn't) ────────
+# .browser-code/tool/*.ts import research src via relative paths, so
+# packages/*/src/ ships and is resolved at runtime; dist/ is never used
+# (bun runs .ts directly) and tests are dev-only.
+packages/*/node_modules/
+packages/*/.turbo/
+packages/*/.bun/
+packages/*/coverage/
+packages/*/dist/
+packages/*/test/
+packages/*/tests/
+packages/**/*.test.ts
+packages/**/*.test.js
+packages/**/*.spec.ts
+packages/**/*.spec.js
+**/.vite/
+**/.bun/
+
+# ─── .browser-code local install deps (tool/ and agent/ ARE shipped) ────
+.browser-code/node_modules/
+.browser-code/.gitignore
+
+# ─── Editor / OS / logs ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+*.tsbuildinfo
+.vscode/
+.idea/
+.zed/
+*.swp
+
+# ─── Docs sources not meant for the npm package ─────────────────────────
+docs/superpowers/

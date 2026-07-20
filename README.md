@@ -100,6 +100,87 @@ browser-code
 - Windows x64 / macOS（Apple Silicon 与 Intel）/ Linux x64
 - 可选：Bun（本地 KB server）、Python 3.11（B站/小红书 provider）、Chrome（CDP 救援）
 
+## Agent 安装
+
+> 本节写给 agent 看（Claude / Codex / Copilot 等读完后能自动帮用户装好）。命令按平台给出，可直接执行。
+
+### 1. 一键安装（npm）
+
+```bash
+npm install -g browser-code
+```
+
+postinstall 会按平台自动下载 opencode 二进制。装完后命令是 `browser-code`。
+
+### 2. 系统依赖
+
+下列是 browser-code 运行时依赖的外部工具，需 agent 按用户平台安装：
+
+| 依赖 | 用途 | Windows | macOS | Linux |
+|------|------|---------|-------|-------|
+| Node.js >=18 | 运行包装器 | 官网安装 / nvm-windows | `brew install node` / nvm | apt / brew / nvm |
+| bun | KB MCP server + harness 脚本 | PowerShell：`irm bun.sh/install.ps1 \| iex` | `curl -fsSL https://bun.sh/install \| bash` | 同 macOS |
+| ffmpeg | 音视频处理（提取音频、转码） | `winget install ffmpeg` 或官网 | `brew install ffmpeg` | `apt install ffmpeg` |
+| yt-dlp | 视频字幕/下载 | `winget install yt-dlp.yt-dlp` 或 pip | `brew install yt-dlp` | `pip install yt-dlp` |
+| Python 3.11 | ASR（火山引擎）+ OCR（PaddleOCR） | 官网 / `winget install Python.Python.3.11` | `brew install python@3.11` | `apt install python3 python3-pip` |
+| paddleocr (pip) | OCR 图片文字识别 | `pip install paddleocr` | 同左 | 同左 |
+| npx | 远程 MCP（chrome-devtools 等） | 随 Node 自带 | 随 Node 自带 | 随 Node 自带 |
+
+> 注意：Python 在 macOS/Linux 上命令是 `python3`，Windows 上是 `python`。browser-code 内部会按平台选择，无需用户手动切换。
+
+### 3. 可选 MCP 配置（按需）
+
+`browser-code.jsonc` 中配置的 MCP server，部分需要用户额外配置才能启用：
+
+- **bilibili-video-info**：需要 Python venv + `SESSDATA` cookie 环境变量（`browser-code.jsonc` 中显式声明 `SESSDATA`）
+- **bilibili-readonly**：仅需 Python venv（`browser-code.jsonc` 中未声明 `SESSDATA`，部分只读接口不依赖登录态；若个别接口要求登录，可再补 `SESSDATA`）
+- **xhs-local**（小红书）：需要 `XHS_COOKIE` 环境变量
+- **douyin-cli**（抖音）：npm 包**不包含** douyin 二进制（为减小包体积）。装完 browser-code 后，若要启用抖音 MCP，需自行从抖音 MCP 项目下载对应平台二进制，放到 `tools/mcp/bin/` 目录（Windows 为 `douyin.exe`），否则该 MCP 无法使用
+- **chrome-devtools**：通过 `npx` 自动拉取，无需配置
+- **browsercode-knowledge**（本地 KB）：装好 bun 即可，自动启动
+
+环境变量示例（写入用户 `.env` 或 shell profile）：
+
+```
+SESSDATA=你的B站cookie
+XHS_COOKIE=你的小红书cookie
+VOLC_ASR_API_KEY=火山引擎ASR的key（可选，用于音频转写）
+```
+
+### 4. 自带 Skill / Agent 说明
+
+装完后可直接使用的工具和子代理：
+
+- **kb_manage**：知识库管理（写入 claims/topics/entities、FTS 搜索、图谱查询、过期标记、LLM 合成/推演）
+- **save_markdown_note**：vault 笔记写入（自动去重、slug 命名）
+- **search_vault**：vault 搜索
+- **proreader**：研究专家子代理（12 路 provider：llm_wiki_lite/websearch/webfetch/github/wikipedia/official_docs/youtube/bilibili/douyin/xiaohongshu/tiktok/site_search）
+- **4 位学术专家子代理**：anthropologist / geographer / historian / psychologist
+- **ocr_text**：PaddleOCR 图片识别
+- **fetch_transcript / transcribe_audio**：视频字幕 / 音频转写
+- **web_to_markdown**：网页转 markdown
+
+### 5. 首次启动
+
+```bash
+cd 你的项目文件夹
+browser-code
+```
+
+首次运行会在**当前目录**创建 `vault/`（原始内容）、`kb/`（知识图谱）和 `index/`（FTS 索引）。每个目录是独立的知识空间。
+
+### 6. 数据目录自定义（可选）
+
+默认数据写入启动目录。想换地方：
+
+```bash
+# Windows
+set BROWSER_CODE_DATA_DIR=D:\my-kb
+# macOS/Linux
+export BROWSER_CODE_DATA_DIR=/Users/me/my-kb
+browser-code
+```
+
 ## 开发
 
 ```bash

@@ -32,7 +32,9 @@ Legacy entry point. New scripts:
     process.exit(0);
   }
 
-  const projectRoot = import.meta.dir ? import.meta.dir + "/.." : process.cwd();
+  const projectRoot = process.env.BROWSER_CODE_DATA_DIR
+    ? process.env.BROWSER_CODE_DATA_DIR
+    : (import.meta.dir ? import.meta.dir + "/.." : process.cwd());
 
   // Step 1: Enqueue
   execSync(`bun run harness/enqueue.ts "${notePath}"`, {

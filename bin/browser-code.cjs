@@ -33,6 +33,13 @@ if (!process.env.BROWSER_CODE_CONFIG_DIR) {
   process.env.BROWSER_CODE_CONFIG_DIR = path.join(workspaceRoot, ".browser-code")
 }
 
+// Ensure KB/vault/index data goes to the user's launch directory, not the npm package dir.
+// harness scripts default to import.meta.dir (npm package dir on global install = C drive).
+// Override via env so data stays with the user's project.
+if (!process.env.BROWSER_CODE_DATA_DIR) {
+  process.env.BROWSER_CODE_DATA_DIR = process.cwd()
+}
+
 try {
   const result = spawnSync(forkBinary, process.argv.slice(2), {
     stdio: "inherit",

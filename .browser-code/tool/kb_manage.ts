@@ -2,12 +2,18 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { join, resolve } from "node:path"
 import { createHash } from "node:crypto"
 import { Database } from "bun:sqlite"
-import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import { validateKbPipeline, parsePipelineStatus } from "../../packages/research/src/validator"
 
 // ── 常量 ──
 
-const KB_DIR = join(process.cwd(), "kb")
+// Data root: prefer explicit env override, else launch directory.
+// bin/browser-code.cjs sets this to process.cwd() on launch.
+const DATA_ROOT = process.env.BROWSER_CODE_DATA_DIR
+  ? resolve(process.env.BROWSER_CODE_DATA_DIR)
+  : process.cwd();
+
+const KB_DIR = join(DATA_ROOT, "kb")
 const SOURCES_DIR = join(KB_DIR, "sources")
 const CLAIMS_DIR = join(KB_DIR, "claims")
 const TOPICS_DIR = join(KB_DIR, "topics")
@@ -100,7 +106,7 @@ function updateManagedBlocks(
  */
 async function execCommand(command: string, args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const proc = Bun.spawn([command, ...args], {
-    cwd: process.cwd(),
+    cwd: DATA_ROOT,
     stdout: "pipe",
     stderr: "pipe",
   })
@@ -652,7 +658,7 @@ async function handleContext(query: string): Promise<{
   }>
   instruction: string
 }> {
-  const dbPath = resolve(process.cwd(), "index/browsercode.sqlite")
+  const dbPath = resolve(DATA_ROOT, "index/browsercode.sqlite")
   if (!existsSync(dbPath)) {
     return { candidates: [], instruction: "KB 索引不存在。先运行 after_capture 或 kb:index 构建索引。" }
   }
@@ -704,7 +710,7 @@ async function handleContext(query: string): Promise<{
   // Read actual .md files from disk for complete content
   // (DB may store truncated content; file always has full text)
   const candidates = rows.map(r => {
-    const fullPath = resolve(process.cwd(), r.path)
+    const fullPath = resolve(DATA_ROOT, r.path)
     let content = r.content || ""
     if (existsSync(fullPath)) {
       try {
@@ -743,7 +749,7 @@ function handleSynthesize(target: string): {
   totalClaimCount: number
   synthesisPrompt: string
 } {
-  const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+  const db = new Database(resolve(DATA_ROOT, "index/browsercode.sqlite"))
 
   // 查找所有指向该 topic 的 claim links
   const claimLinks = db.query(`
@@ -754,7 +760,7 @@ function handleSynthesize(target: string): {
   // 读取每个 claim 文件内容提取文本
   const claimTexts: string[] = []
   for (const link of claimLinks) {
-    const fullPath = resolve(process.cwd(), link.source_path)
+    const fullPath = resolve(DATA_ROOT, link.source_path)
     if (existsSync(fullPath)) {
       const content = readFileSync(fullPath, "utf8")
       const lines = content.split("\n").filter(l => l.trim().startsWith("- [") && l.includes("]"))
@@ -804,7 +810,7 @@ function handleSpeculate(target: string): {
   claimCount: number
   speculationPrompt: string
 } {
-  const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+  const db = new Database(resolve(DATA_ROOT, "index/browsercode.sqlite"))
 
   const claimLinks = db.query(`
     SELECT source_path FROM links
@@ -815,7 +821,7 @@ function handleSpeculate(target: string): {
   // 读取 claim 文本
   const claimTexts: string[] = []
   for (const link of claimLinks) {
-    const fullPath = resolve(process.cwd(), link.source_path)
+    const fullPath = resolve(DATA_ROOT, link.source_path)
     if (existsSync(fullPath)) {
       const content = readFileSync(fullPath, "utf8")
       const lines = content.split("\n").filter(l => l.trim().startsWith("- [") && l.includes("]"))
@@ -1080,7 +1086,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
 
       case "backlinks": {
         if (!args.target) throw new Error("backlinks requires: target")
-        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const db = new Database(resolve(DATA_ROOT, "index/browsercode.sqlite"))
         const rows = db.query(`SELECT source_path, source_type, link_context FROM links WHERE target_path = ?`, [args.target as string]).all() as Array<{source_path: string; source_type: string; link_context: string}>
         db.close()
         return JSON.stringify({ target: args.target, backlinks: rows.map(r => ({ source_path: r.source_path, source_type: r.source_type, context: r.link_context?.slice(0, 100) })) }, null, 2)
@@ -1088,14 +1094,14 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
 
       case "outlinks": {
         if (!args.target) throw new Error("outlinks requires: target")
-        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const db = new Database(resolve(DATA_ROOT, "index/browsercode.sqlite"))
         const rows = db.query(`SELECT target_path, target_type, link_context FROM links WHERE source_path = ?`, [args.target as string]).all() as Array<{target_path: string; target_type: string; link_context: string}>
         db.close()
         return JSON.stringify({ source: args.target, outlinks: rows.map(r => ({ target_path: r.target_path, target_type: r.target_type, context: r.link_context?.slice(0, 100) })) }, null, 2)
       }
 
       case "orphans": {
-        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const db = new Database(resolve(DATA_ROOT, "index/browsercode.sqlite"))
         const orphans: Record<string, string[]> = {
           claims: [],
           entities: [],
@@ -1103,7 +1109,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         }
         const typeDirMap: Array<[string, string]> = [["claim", "claims"], ["entity", "entities"], ["topic", "topics"]]
         for (const [type, dir] of typeDirMap) {
-          const dirPath = join(process.cwd(), "kb", dir)
+          const dirPath = join(DATA_ROOT, "kb", dir)
           if (!existsSync(dirPath)) continue
           const files = readdirSync(dirPath).filter(f => f.endsWith(".md") && f !== ".template.md")
           for (const f of files) {
@@ -1117,7 +1123,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
       }
 
       case "stale": {
-        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const db = new Database(resolve(DATA_ROOT, "index/browsercode.sqlite"))
         const rows = db.query(`
           SELECT ts.topic_path, ts.claim_count, ts.last_synthesized_at,
                  COALESCE((SELECT COUNT(*) FROM links WHERE target_path = ts.topic_path), 0) as backlink_count
@@ -1125,7 +1131,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
           ORDER BY ts.claim_count ASC
         `).all() as Array<{topic_path: string; claim_count: number; last_synthesized_at: string; backlink_count: number}>
 
-        const topicsDir = join(process.cwd(), "kb", "topics")
+        const topicsDir = join(DATA_ROOT, "kb", "topics")
         const stale: Array<{path: string; claims: number; backlinks: number; daysSinceModified: number}> = []
         const active: Array<{path: string; claims: number; backlinks: number; daysSinceModified: number}> = []
 
@@ -1153,7 +1159,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
       case "conflicts": {
         if (!args.target) throw new Error("conflicts requires: target (topic path)")
         const topic = args.target as string
-        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const db = new Database(resolve(DATA_ROOT, "index/browsercode.sqlite"))
         const rows = db.query(`
           SELECT l1.source_path as a, l2.source_path as b, l1.link_context as a_ctx, l2.link_context as b_ctx
           FROM links l1

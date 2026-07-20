@@ -1,7 +1,7 @@
 import { join, extname } from "node:path"
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs"
 import { createHash } from "node:crypto"
-import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 
 const vaultDir = join(process.cwd(), "vault")
 

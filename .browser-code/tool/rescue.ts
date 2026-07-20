@@ -13,7 +13,7 @@
  *   ProReader (read-only) → Rescue Lane (plan only) → Agent (executes CDP) → L0 save
  */
 
-import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import type { FailureReason } from "../../packages/research/src/provider-executor"
 
 // ── Types ──

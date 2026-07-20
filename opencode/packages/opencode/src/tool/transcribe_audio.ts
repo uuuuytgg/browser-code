@@ -95,7 +95,9 @@ export const TranscribeAudioTool = Tool.define(
                 // also preserve system env
                 for (const k of ["PATH", "TMP", "TEMP", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA"])
                   if (process.env[k]) env[k] = process.env[k]!
-                const p = spawn("python", [scriptPath, wavPath], { windowsHide: true, env })
+                // [BROWSER-CODE-CHANGE] Mac/Linux uses `python3`, Windows uses `python`.
+                const pythonCmd = process.platform === "win32" ? "python" : "python3"
+                const p = spawn(pythonCmd, [scriptPath, wavPath], { windowsHide: true, env })
                 const out: Buffer[] = []; const err: Buffer[] = []
                 p.stdout.on("data", (b: Buffer) => out.push(b))
                 p.stderr?.on("data", (b: Buffer) => err.push(b))

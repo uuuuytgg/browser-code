@@ -5,21 +5,34 @@ coverage/
 temp/
 release/
 .env
+.env.*
+!.env.example
 .DS_Store
 *.log
 .tmp/
 index/*.sqlite
 index/*.sqlite-wal
 index/*.sqlite-shm
+*.sqlite-*
 # old merge artifacts & temp files
 _tmp_*
 _merge_master/
-# python virtualenv for MCP tools
+# python virtualenv & bytecode for MCP tools
 tools/mcp/.venv/
 tools/mcp/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
+# MCP tool binaries & archives (fetched per-platform, not tracked)
+tools/mcp/bin/*.exe
+tools/mcp/bin/*.zip
+# nested third-party MCP clones (have their own .git)
+tools/mcp/adoresever-bilibili-mcp/
 # opencode build deps
 opencode/node_modules/
 opencode/.turbo/
+# stale bun build-cache artifacts (can be ~1GB, dotfiles matching *.bun-build)
+*.bun-build
 # user knowledge base data (runtime generated, do not track)
 kb/
 vault/
@@ -30,3 +43,6 @@ vault/
 # compiled binaries (built locally or downloaded via postinstall)
 bin/*.exe
 bin/browser-code
+# nested cloned MCP repo creds
+tools/mcp/**/bili_credential*.json*
+tools/mcp/**/*cookies*.txt

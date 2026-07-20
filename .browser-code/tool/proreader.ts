@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs"
 import { delimiter, extname, join } from "node:path"
-import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import {
   buildMcpToolsRuntimeBridge,
   buildEnrichmentMcpToolConfig,

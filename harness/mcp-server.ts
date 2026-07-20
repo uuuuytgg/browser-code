@@ -22,9 +22,12 @@ import fs from "node:fs";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
-const PROJECT_ROOT = path.resolve(import.meta.dir, "..");
-const KB_ROOT = path.join(PROJECT_ROOT, "kb");
-const DB_PATH = path.join(PROJECT_ROOT, "index", "browsercode.sqlite");
+const DATA_ROOT = process.env.BROWSER_CODE_DATA_DIR
+  ? path.resolve(process.env.BROWSER_CODE_DATA_DIR)
+  : path.resolve(import.meta.dir, "..");
+const PROJECT_ROOT = DATA_ROOT;
+const KB_ROOT = path.join(DATA_ROOT, "kb");
+const DB_PATH = path.join(DATA_ROOT, "index", "browsercode.sqlite");
 
 const KIND_BOOST: Record<string, number> = {
   claim: 3, topic: 2, entity: 1, source: 0, query: 0,

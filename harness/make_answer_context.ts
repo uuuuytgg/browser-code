@@ -11,8 +11,11 @@ import { Database } from "bun:sqlite";
 import path from "node:path";
 import fs from "node:fs";
 
-const DB_PATH = path.resolve(import.meta.dir, "..", "index", "browsercode.sqlite");
-const OUTPUT_DIR = path.resolve(import.meta.dir, "..", ".tmp");
+const DATA_ROOT = process.env.BROWSER_CODE_DATA_DIR
+  ? path.resolve(process.env.BROWSER_CODE_DATA_DIR)
+  : path.resolve(import.meta.dir, "..");
+const DB_PATH = path.join(DATA_ROOT, "index", "browsercode.sqlite");
+const OUTPUT_DIR = path.join(DATA_ROOT, ".tmp");
 const OUTPUT_PATH = path.join(OUTPUT_DIR, "answer_context.md");
 
 const KIND_BOOST: Record<string, number> = {

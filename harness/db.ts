@@ -9,11 +9,18 @@ import { Database } from "bun:sqlite";
 import { resolve, basename } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 
-export const PROJECT_ROOT = resolve(import.meta.dir, "..");
-export const INDEX_DIR = resolve(PROJECT_ROOT, "index");
+// Data root: prefer BROWSER_CODE_DATA_DIR (set by bin/browser-code.cjs to launch dir),
+// fall back to project dir (dev mode). NEVER default to cwd here because harness scripts
+// may be invoked from anywhere; the bin wrapper is responsible for setting the env var.
+const DATA_ROOT = process.env.BROWSER_CODE_DATA_DIR
+  ? resolve(process.env.BROWSER_CODE_DATA_DIR)
+  : resolve(import.meta.dir, "..");
+
+export const PROJECT_ROOT = DATA_ROOT;
+export const INDEX_DIR = resolve(DATA_ROOT, "index");
 export const DB_PATH = resolve(INDEX_DIR, "browsercode.sqlite");
-export const KB_ROOT = resolve(PROJECT_ROOT, "kb");
-export const VAULT_ROOT = resolve(PROJECT_ROOT, "vault");
+export const KB_ROOT = resolve(DATA_ROOT, "kb");
+export const VAULT_ROOT = resolve(DATA_ROOT, "vault");
 
 /** 确保目录存在 */
 export function ensureDir(dir: string): void {

@@ -15,7 +15,9 @@ import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const PROJECT_ROOT = resolve(import.meta.dir, "..");
+const PROJECT_ROOT = process.env.BROWSER_CODE_DATA_DIR
+  ? resolve(process.env.BROWSER_CODE_DATA_DIR)
+  : resolve(import.meta.dir, "..");
 const HOOKS_DIR = resolve(PROJECT_ROOT, ".githooks");
 const POST_COMMIT = resolve(HOOKS_DIR, "post-commit");
 

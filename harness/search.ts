@@ -14,7 +14,9 @@ import { Database } from "bun:sqlite";
 import path from "node:path";
 import process from "node:process";
 
-const DB_PATH = path.resolve(import.meta.dir, "..", "index", "browsercode.sqlite");
+const DB_PATH = process.env.BROWSER_CODE_DATA_DIR
+  ? path.resolve(process.env.BROWSER_CODE_DATA_DIR, "index", "browsercode.sqlite")
+  : path.resolve(import.meta.dir, "..", "index", "browsercode.sqlite");
 
 // Kind boost: claims > topics > entities > sources
 const KIND_BOOST: Record<string, number> = {

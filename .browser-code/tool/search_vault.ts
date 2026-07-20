@@ -1,6 +1,6 @@
 import { join } from "node:path"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
-import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 
 const vaultDir = join(process.cwd(), "vault")
 

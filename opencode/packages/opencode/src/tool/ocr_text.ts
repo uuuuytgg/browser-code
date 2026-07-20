@@ -67,7 +67,9 @@ print(json.dumps({"ok": True, "text": "\\n".join(all_text), "lines": lines}, ens
           const text = yield* Effect.tryPromise<string>({
             try: () =>
               new Promise<string>((resolve, reject) => {
-                const p = spawn("python", ["-c", pythonScript, inputPath], { windowsHide: true })
+                // [BROWSER-CODE-CHANGE] Mac/Linux uses `python3`, Windows uses `python`.
+                const pythonCmd = process.platform === "win32" ? "python" : "python3"
+                const p = spawn(pythonCmd, ["-c", pythonScript, inputPath], { windowsHide: true })
                 const out: Buffer[] = []
                 const err: Buffer[] = []
                 p.stdout.on("data", (b: Buffer) => out.push(b))
