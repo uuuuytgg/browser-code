@@ -180,6 +180,9 @@ function handleSaveSource(args: SaveSourceArgs): {
     .map((p) => `- ${p}`)
     .join("\n")
 
+  const qualityScore = calcSourceQuality(0, 0, (args.related_topics ?? []).length > 0)
+  const qualityStatus = qualityScore < 3 ? "low_value" : "active"
+
   const content = [
     `# ${args.title}`,
     "",
@@ -188,7 +191,8 @@ function handleSaveSource(args: SaveSourceArgs): {
     `source_url: ${args.source_url}`,
     `captured_at: ${isoNow()}`,
     `vault_path: ${args.vault_path}`,
-    "status: active",
+    `status: ${qualityStatus}`,
+    `quality_score: ${qualityScore}`,
     "",
     "## Summary",
     args.summary,
@@ -211,6 +215,31 @@ function handleSaveSource(args: SaveSourceArgs): {
 }
 
 /**
+ * Parse existing claims from a .claims.md file content.
+ * Returns array of {text} for dedup/ID-continuation purposes.
+ */
+function parseExistingClaims(content: string): Array<{text: string}> {
+  const results: Array<{text: string}> = []
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith("- [") && trimmed.includes("]")) {
+      const afterType = trimmed.slice(trimmed.indexOf("]") + 1).trim()
+      const emdash = afterType.indexOf("—")
+      results.push({ text: emdash >= 0 ? afterType.slice(0, emdash).trim() : afterType })
+    }
+  }
+  return results
+}
+
+/**
+ * Calculate source quality score: claimsCount * 1 + typeDiversity * 2 + (hasLinkedTopic ? 3 : 0)
+ * Score < 3 → low_value.
+ */
+function calcSourceQuality(claimsCount: number, typeDiversity: number, hasLinkedTopic: boolean): number {
+  return claimsCount * 1 + typeDiversity * 2 + (hasLinkedTopic ? 3 : 0)
+}
+
+/**
  * 创建 kb/claims/{name}.claims.md
  * claim type 由 enum 约束，格式由代码保证。
  */
@@ -219,6 +248,7 @@ function handleSaveClaims(args: SaveClaimsArgs): {
   claimCount: number
   warnings: string[]
   created: boolean
+  claims: Array<{ claim_id: string; text: string; type: string }>
 } {
   const sourceName = args.source_file
     .replace(/^kb\/sources\//, "")
@@ -232,11 +262,7 @@ function handleSaveClaims(args: SaveClaimsArgs): {
 
   const warnings: string[] = []
 
-  if (existsSync(filePath)) {
-    return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, warnings: [], created: false }
-  }
-
-  // 验证 claim type + confidence
+  // ── 验证 claim type + confidence ──
   for (const claim of args.claims) {
     if (!CLAIM_TYPES.includes(claim.type)) {
       throw new Error(
@@ -253,10 +279,77 @@ function handleSaveClaims(args: SaveClaimsArgs): {
     }
   }
 
+  // ── 如果文件已存在：重复检测 + ID 续排 ──
+  let existingContent = ""
+  let maxClaimId = 0
+
+  if (existsSync(filePath)) {
+    existingContent = readFileSync(filePath, "utf8")
+
+    // 精确文本重复检测
+    const existingClaims = parseExistingClaims(existingContent)
+    const duplicateTexts: string[] = []
+    for (const claim of args.claims) {
+      const norm = claim.text.toLowerCase().trim()
+      for (const ec of existingClaims) {
+        if (ec.text.toLowerCase().trim() === norm) {
+          duplicateTexts.push(claim.text.slice(0, 60))
+        }
+      }
+    }
+    if (duplicateTexts.length > 0) {
+      throw new Error(
+        `拒绝写入：以下 ${duplicateTexts.length} 条 claim 已存在于该文件中：${duplicateTexts.map(t => `"${t}..."`).join("; ")}`,
+      )
+    }
+
+    // 解析已有 claims 找最大 C 编号作为续排种子
+    for (const line of existingContent.split("\n")) {
+      const m = line.match(/\*\*C(\d+)\*\*/)
+      if (m) maxClaimId = Math.max(maxClaimId, parseInt(m[1]))
+    }
+  }
+
+  // 写入 claim 行，自动分配 claim_id
   const claimLines = args.claims
-    .map((c) => `- [${c.type}] ${c.text} — **Confidence:** ${c.confidence} — **Source:** ${c.source_ref || "见原文"}`)
+    .map((c, idx) => {
+      const cid = `C${maxClaimId + idx + 1}`
+      return `- [${c.type}] ${c.text} — **Confidence:** ${c.confidence} — **Source:** ${c.source_ref || "见原文"} — **${cid}**`
+    })
     .join("\n")
 
+  // ── 构建输出 claims 数组带回 claim_id ──
+  const outputClaims = args.claims.map((c, idx) => ({
+    claim_id: `C${maxClaimId + idx + 1}`,
+    text: c.text,
+    type: c.type,
+  }))
+
+  if (existsSync(filePath)) {
+    // 文件已存在：在 managed-block 区域的 Claims 部分追加新 claim 行
+    // 如果文件末尾有 managed 标记，在其前一节追加；否则直接追加在文件末尾
+    const startMarker = "<!-- browsercode:managed:start"
+    const endMarker = "<!-- browsercode:managed:end"
+    if (existingContent.includes(startMarker)) {
+      // 在最后一个 managed block 之前插入新 claims
+      const lastEnd = existingContent.lastIndexOf(endMarker)
+      if (lastEnd >= 0) {
+        const beforeEnd = existingContent.slice(0, lastEnd).trimEnd()
+        const afterEnd = existingContent.slice(lastEnd)
+        const newContent = beforeEnd + "\n\n新追加 Claims：\n" + claimLines + "\n\n" + afterEnd
+        writeFileSync(filePath, newContent, "utf8")
+      } else {
+        // 无 end marker，追加到文件末尾
+        writeFileSync(filePath, existingContent.trimEnd() + "\n\n新追加 Claims：\n" + claimLines + "\n", "utf8")
+      }
+    } else {
+      // 无 managed block，直接追加
+      writeFileSync(filePath, existingContent.trimEnd() + "\n\n新追加 Claims：\n" + claimLines + "\n", "utf8")
+    }
+    return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, warnings, created: false, claims: outputClaims }
+  }
+
+  // ── 新文件 ──
   const content = [
     `# Claims: ${sourceTitle}`,
     "",
@@ -271,7 +364,7 @@ function handleSaveClaims(args: SaveClaimsArgs): {
   ].join("\n")
 
   safeWrite(filePath, content)
-  return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, warnings, created: true }
+  return { filePath: `kb/claims/${filename}`, claimCount: args.claims.length, warnings, created: true, claims: outputClaims }
 }
 
 /**
@@ -613,7 +706,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         source_ref: tool.schema.string().optional(),
       }))
       .optional()
-      .describe("(save_claims) Array of {type, text, confidence, source_ref?} claim objects."),
+      .describe("(save_claims) Array of {type, text, confidence, source_ref?} claim objects. Output includes auto-generated claim_id (C{num})."),
 
     topic_name: tool.schema.string().optional()
       .describe("(link_topic) Topic name in English."),
