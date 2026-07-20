@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML → PPTX 转换器 · 纯本地</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f5f5f0;--surface:#fff;--border:#ddd;--text:#1a1a1a;--text2:#666;--accent:#DA291C;--accent2:#b82318;--font:'Segoe UI',system-ui,sans-serif;--mono:'Cascadia Code','JetBrains Mono','Fira Code',monospace;--radius:6px;--shadow:0 1px 3px rgba(0,0,0,0.08)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{display:flex;align-items:center;gap:16px;padding:10px 20px;background:var(--surface);border-bottom:2px solid var(--accent);flex-shrink:0;box-shadow:var(--shadow);z-index:10}
+.header h1{font-size:18px;font-weight:800;letter-spacing:-0.5px;display:flex;align-items:center;gap:8px}
+.header h1 span{color:var(--accent)}
+.badge{font-size:11px;color:var(--text2);margin-left:auto;display:flex;align-items:center;gap:6px}
+.badge .dot{width:6px;height:6px;border-radius:50%;display:inline-block;background:#22c55e}
+.main{display:flex;flex:1;overflow:hidden;gap:0}
+.panel{display:flex;flex-direction:column;overflow:hidden}
+.panel-left{width:42%;border-right:1px solid var(--border)}
+.panel-right{width:58%}
+.panel-header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
+.panel-header .cnt{margin-left:auto;font-size:10px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;text-transform:none;letter-spacing:0}
+.toolbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.toolbar label{font-size:12px;font-weight:600;color:var(--text2);margin-right:2px}
+.toolbar select,.toolbar input[type="text"]{font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);font-family:var(--font);outline:none}
+.toolbar select:focus,.toolbar input:focus{border-color:var(--accent)}
+.toolbar .sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.btn{font-size:12px;font-weight:600;padding:5px 14px;border:none;border-radius:var(--radius);cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:5px;font-family:var(--font)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+.btn-sm{padding:3px 10px;font-size:11px}
+.editor-wrap{flex:1;position:relative;overflow:hidden}
+.editor-wrap textarea{width:100%;height:100%;border:none;resize:none;outline:none;font-family:var(--mono);font-size:13px;line-height:1.6;padding:14px;tab-size:2;background:var(--surface);color:var(--text)}
+.editor-wrap textarea::placeholder{color:#bbb}
+.overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.95);z-index:5;border:2px dashed var(--border);border-radius:4px;cursor:pointer;transition:all 0.2s;gap:12px}
+.overlay.dragover{border-color:var(--accent);background:rgba(218,41,28,0.05)}
+.overlay.hidden{display:none}
+.overlay .icon{font-size:36px;opacity:0.4}
+.overlay p{font-size:14px;color:var(--text2)}
+.overlay .sub{font-size:11px;color:#aaa}
+.stats{display:flex;gap:16px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-shrink:0}
+.stats .st{display:flex;align-items:center;gap:4px}
+.stats .num{font-weight:700;color:var(--accent);font-size:14px}
+.preview{flex:1;overflow:auto;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:11px;box-shadow:var(--shadow);position:relative;min-height:70px}
+.card .n{position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;color:var(--accent);opacity:0.6}
+.card .t{font-weight:700;font-size:12px;margin-bottom:4px;padding-right:20px}
+.card .m{font-size:10px;color:var(--text2);display:flex;gap:8px;flex-wrap:wrap}
+.card .p{margin-top:6px;font-size:10px;color:var(--text2);line-height:1.5;max-height:60px;overflow:hidden}
+.card .tag{display:inline-block;font-size:8px;padding:1px 5px;border-radius:3px;background:var(--bg);color:var(--text2);margin-right:3px}
+.empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#bbb;font-size:14px;padding:60px 20px;gap:8px}
+.empty .icon{font-size:40px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--radius);font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:999;opacity:0;transform:translateY(10px);transition:all 0.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{border-left:3px solid #22c55e}
+.toast.err{border-left:3px solid #ef4444}
+.resize{width:5px;cursor:col-resize;background:transparent;position:relative;flex-shrink:0;z-index:5}
+.resize:hover,.resize.active{background:var(--accent);opacity:0.3}
+@media(max-width:800px){.main{flex-direction:column}.panel-left,.panel-right{width:100%!important}.panel-left{height:45vh}.panel-right{height:55vh}.preview{grid-template-columns:1fr}.header h1{font-size:15px}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1><span>HTML</span> → PPTX <span style="font-weight:400;font-size:12px;color:var(--text2);margin-left:4px;">零依赖 · 纯本地</span></h1>
+  <span class="badge"><span class="dot"></span> 离线可用</span>
+</header>
+
+<div class="main">
+  <div class="panel panel-left">
+    <div class="panel-header">
+      📄 HTML 源码
+      <span class="cnt" id="charCnt">0 字符</span>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-secondary btn-sm" id="btnOpen">📂 打开文件</button>
+      <input type="file" id="fileInput" accept=".html,.htm" style="display:none">
+      <button class="btn btn-secondary btn-sm" id="btnClear">🗑️ 清空</button>
+      <button class="btn btn-secondary btn-sm" id="btnDemo">📋 加载示例</button>
+    </div>
+    <div class="editor-wrap">
+      <textarea id="htmlSrc" spellcheck="false" placeholder="在此粘贴 HTML 内容，或点击「打开文件」加载本地 HTML 文件&#10;&#10;支持元素：&#10;  &lt;h1&gt; &lt;h2&gt;  → 幻灯片标题&#10;  &lt;p&gt; &lt;ul&gt; &lt;ol&gt; → 正文内容&#10;  &lt;table&gt; → 表格&#10;  &lt;pre&gt; &lt;code&gt; → 代码块&#10;  &lt;blockquote&gt; → 引用&#10;  &lt;section&gt; &lt;hr&gt; → 分页标记&#10;&#10;所有处理在浏览器本地完成，0 网络请求。"></textarea>
+      <div class="overlay" id="overlay">
+        <div class="icon">📂</div>
+        <p>点击或拖拽 HTML 文件到此处</p>
+        <div class="sub">支持 .html / .htm · 全部在本地浏览器处理</div>
+        <button class="btn btn-primary" style="margin-top:8px" id="btnPick">选择文件</button>
+      </div>
+    </div>
+  </div>
+  <div class="resize" id="resize"></div>
+  <div class="panel panel-right">
+    <div class="panel-header">⚙️ 转换设置</div>
+    <div class="toolbar">
+      <label>模板</label>
+      <select id="tplSel">
+        <option value="clean">干净白底</option>
+        <option value="modern" selected>现代专业</option>
+        <option value="dark">深色风格</option>
+      </select>
+      <span class="sep"></span>
+      <label>拆分</label>
+      <select id="splitSel">
+        <option value="h1">仅 H1</option>
+        <option value="h1h2" selected>H1 + H2（推荐）</option>
+        <option value="hr">含分隔线</option>
+        <option value="section">Section 标签</option>
+      </select>
+      <span class="sep"></span>
+      <button class="btn btn-primary" id="btnGo">📥 下载 HTML + 生成命令</button>
+    </div>
+    <div class="stats" id="stats">
+      <span class="st">📄 幻灯片: <span class="num" id="sc">0</span></span>
+      <span class="st">📦 元素: <span class="num" id="ec">0</span></span>
+      <span class="st" id="extra"></span>
+    </div>
+    <div class="cmd-bar" id="cmdBar" style="display:none;padding:8px 14px;background:#fef3c7;border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono);flex-shrink:0;word-break:break-all">
+      <span style="font-weight:600;color:#92400e">💻 运行命令:</span>
+      <span id="cmdText" style="color:#1a1a1a"></span>
+    </div>
+    <div class="preview" id="preview">
+      <div class="empty"><div class="icon">📝</div><div>粘贴或加载 HTML 后，此处显示幻灯片预览</div><div style="font-size:11px">H1 = 标题页 · H2 = 内容标题</div></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+// ============================================================
+// 零依赖 ZIP 生成器 + OOXML 构建器
+// 纯浏览器原生 API，无任何外部加载
+// ============================================================
+
+// ---------- DOM ----------
+const $ = id => document.getElementById(id);
+const htmlSrc = $('htmlSrc'), preview = $('preview');
+const sc = $('sc'), ec = $('ec'), charCnt = $('charCnt'), extra = $('extra');
+const tplSel = $('tplSel'), splitSel = $('splitSel');
+const overlay = $('overlay'), fileInput = $('fileInput');
+const toast = $('toast');
+const btnGo = $('btnGo'), btnOpen = $('btnOpen'), btnClear = $('btnClear'), btnDemo = $('btnDemo'), btnPick = $('btnPick');
+
+// ---------- Toast ----------
+let _t;
+function msg(s, type='ok'){
+  toast.textContent = s; toast.className = 'toast '+type+' show';
+  clearTimeout(_t); _t = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// ZIP 生成器（纯手工，0 依赖）
+// ============================================================
+const CRC32_TABLE = new Uint32Array(256);
+for (let i = 0; i < 256; i++) {
+  let c = i;
+  for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+  CRC32_TABLE[i] = c;
+}
+function crc32(data){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < data.length; i++) c = CRC32_TABLE[(c ^ data[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/** files: [{name:string, data:Uint8Array}] */
+function buildZip(files){
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+
+  for (const f of files) {
+    const nameBytes = encoder.encode(f.name);
+    const size = f.data.length;
+    const crc = crc32(f.data);
+
+    // Local file header
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true); // signature
+    lv.setUint16(4, 20, true);  // version needed
+    lv.setUint16(6, 0, true);   // flags
+    lv.setUint16(8, 0, true);   // compression: stored
+    lv.setUint16(10, 0, true);  // mod time
+    lv.setUint16(12, 0, true);  // mod date
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true); // compressed
+    lv.setUint32(22, size, true); // uncompressed
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+    chunks.push(lh);
+    chunks.push(f.data);
+
+    // Central directory entry
+    const ce = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(ce.buffer);
+    cv.setUint32(0, 0x02014b50, true); // signature
+    cv.setUint16(4, 20, true);  // version made by
+    cv.setUint16(6, 20, true);  // version needed
+    cv.setUint16(8, 0, true);   // flags
+    cv.setUint16(10, 0, true);  // compression
+    cv.setUint16(12, 0, true);  // mod time
+    cv.setUint16(14, 0, true);  // mod date
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);  // extra length
+    cv.setUint16(32, 0, true);  // comment length
+    cv.setUint16(34, 0, true);  // disk start
+    cv.setUint16(36, 0, true);  // internal attrs
+    cv.setUint32(38, 0, true);  // external attrs
+    cv.setUint32(42, offset, true); // local header offset
+    ce.set(nameBytes, 46);
+    central.push(ce);
+    offset += 30 + nameBytes.length + size;
+  }
+
+  // Central directory
+  const cdStart = chunks.reduce((a, c) => a + c.byteLength, 0);
+  for (const c of central) chunks.push(c);
+  const cdSize = central.reduce((a, c) => a + c.byteLength, 0);
+
+  // End of central directory
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);  // disk
+  ev.setUint16(6, 0, true);  // disk with CD
+  ev.setUint16(8, files.length, true);  // entries on disk
+  ev.setUint16(10, files.length, true); // total entries
+  ev.setUint32(12, cdSize, true); // CD size
+  ev.setUint32(16, cdStart, true); // CD offset
+  ev.setUint16(20, 0, true);  // comment length
+  chunks.push(eocd);
+
+  return new Blob(chunks, { type: 'application/octet-stream' });
+}
+
+// ============================================================
+// OOXML 构建器
+// ============================================================
+function escXml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+function buildPptx(slides, tpl, dims, showNum){
+  const W = dims.w, H = dims.h;
+  const colors = TEMPLATES[tpl];
+  const slidesCount = slides.length;
+  const maxY = H - 0.4; // bottom margin
+
+  let slideXmls = [];
+  let slideRels = [];
+
+  for (let i = 0; i < slidesCount; i++) {
+    const slide = slides[i];
+    const isFirst = (i === 0);
+    const id = i + 1;
+    const title = slide.title || ' ';
+    
+    let shapes = [];
+    let rid = 1; // relationship id counter (not used for text boxes)
+    let y = isFirst ? 1.0 : 1.2;
+
+    // Background fill
+    const bgColor = (i % 2 === 0) ? colors.bg : colors.bg2;
+
+    // Title bar accent (top line)
+    shapes.push(`<p:sp><p:nvSpPr><p:cNvPr id="s${id}_bg" name="bgBar"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${toEmu(W)}" cy="${toEmu(0.04)}"/></a:xfrm><a:solidFill><a:srgbClr val="${colors.topLine}"/></a:solidFill><a:ln w="0"/></p:spPr></p:sp>`);
+
+    if (isFirst) {
+      // ===== TITLE SLIDE =====
+      shapes.push(...buildTextBox('s1_title', W/2 - 4, 1.6, 8, 1.5, 
+        [{text: title, sz: 3600, bold: true, color: colors.title, align: 'ctr'}]
+      ));
+      // Subtitle from first paragraph
+      const sub = slide.elements.find(e => e.type==='p');
+      if (sub) {
+        shapes.push(...buildTextBox('s1_sub', W/2 - 4, 3.4, 8, 0.7,
+          [{text: stripHtml(sub.raw || sub.text), sz: 1800, color: colors.body, align: 'ctr'}]
+        ));
+      }
+    } else {
+      // ===== CONTENT SLIDE =====
+      // Left accent bar
+      shapes.push(`<p:sp><p:nvSpPr><p:cNvPr id="s${id}_acc" name="accent"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toEmu(0.3)}" y="${toEmu(0.3)}"/><a:ext cx="${toEmu(0.05)}" cy="${toEmu(0.5)}"/></a:xfrm><a:solidFill><a:srgbClr val="${colors.accent}"/></a:solidFill><a:ln w="0"/></p:spPr></p:sp>`);
+
+      // Title
+      shapes.push(...buildTextBox('s'+id+'_t', 0.5, 0.25, W-1, 0.6,
+        [{text: title, sz: 2200, bold: true, color: colors.title}]
+      ));
+      // Title underline
+      shapes.push(`<p:sp><p:nvSpPr><p:cNvPr id="s${id}_ul" name="uline"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toEmu(0.5)}" y="${toEmu(0.8)}"/><a:ext cx="${toEmu(1.5)}" cy="${toEmu(0.03)}"/></a:xfrm><a:solidFill><a:srgbClr val="${colors.accent}"/></a:solidFill><a:ln w="0"/></p:spPr></p:sp>`);
+
+      // Content elements
+      for (const el of slide.elements) {
+        if (el.type === 'h1' || el.type === 'h2') continue;
+        if (y >= maxY) break;
+        if (el.type === 'p') {
+          const text = stripHtml(el.raw || el.text);
+          if (text) {
+            const texts = parseRich(el.text || el.raw || '');
+            shapes.push(...buildTextBox('s'+id+'_p'+el._i||Math.random(), 0.6, y, W-1.2, 0.35,
+              texts.length > 0 ? texts : [{text, sz: 1300, color: colors.body}]
+            ));
+            y += 0.35;
+          }
+        } else if (el.type === 'ul' || el.type === 'ol') {
+          const prefix = el.ordered ? '' : '• ';
+          const items = el.items || [];
+          for (let li = 0; li < items.length && y < maxY; li++) {
+            const txt = prefix + stripHtml(items[li]);
+            const isB = items[li].includes('<strong>') || items[li].includes('<b>');
+            shapes.push(...buildTextBox('s'+id+'_l'+li, 0.8, y, W-1.4, 0.3,
+              [{text: txt, sz: 1200, bold: isB, color: colors.body}]
+            ));
+            y += 0.3;
+          }
+        } else if (el.type === 'table' && el.rows) {
+          const rows = el.rows, cols = el.cols || (el.rows[0]?.length || 3);
+          const tblH = Math.min(rows.length * 0.35, maxY - y);
+          shapes.push(...buildTable('s'+id+'_tbl', 0.6, y, W-1.2, tblH, rows, colors));
+          y += tblH + 0.15;
+        } else if (el.type === 'code') {
+          shapes.push(...buildCodeBox('s'+id+'_c', 0.6, y, W-1.2, el.text, colors));
+          y += 0.55;
+        } else if (el.type === 'quote') {
+          const qt = stripHtml(el.text);
+          shapes.push(...buildQuote('s'+id+'_q', 0.6, y, W-1.2, qt, colors));
+          y += 0.5;
+        } else if (el.type === 'hr') {
+          shapes.push(`<p:sp><p:nvSpPr><p:cNvPr id="s${id}_hr" name="hr"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toEmu(0.6)}" y="${toEmu(y+0.05)}"/><a:ext cx="${toEmu(W-1.2)}" cy="${toEmu(0.01)}"/></a:xfrm><a:solidFill><a:srgbClr val="${colors.border}"/></a:solidFill><a:ln w="0"/></p:spPr></p:sp>`);
+          y += 0.2;
+        }
+      }
+
+      // Bottom accent line
+      shapes.push(`<p:sp><p:nvSpPr><p:cNvPr id="s${id}_bot" name="botBar"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="${toEmu(H-0.04)}"/><a:ext cx="${toEmu(W)}" cy="${toEmu(0.04)}"/></a:xfrm><a:solidFill><a:srgbClr val="${colors.topLine}"/></a:solidFill><a:ln w="0"/></p:spPr></p:sp>`);
+
+      // Page number
+      if (showNum) {
+        shapes.push(...buildTextBox('s'+id+'_pn', W-1.2, H-0.45, 1, 0.3,
+          [{text: `${i+1}/${slidesCount}`, sz: 800, color: colors.body, align: 'r'}]
+        ));
+      }
+    }
+
+    slideXmls.push(buildSlideXml(id, bgColor, shapes, W, H));
+    slideRels.push(buildSlideRels(id));
+  }
+
+  // Build all files
+  const encoder = new TextEncoder();
+  const files = [];
+
+  function add(name, content){
+    files.push({ name, data: encoder.encode(content) });
+  }
+
+  add('[Content_Types].xml', buildContentTypes(slidesCount));
+  add('_rels/.rels', buildRels());
+  add('ppt/presentation.xml', buildPresentation(slidesCount, W, H));
+  add('ppt/_rels/presentation.xml.rels', buildPresRels(slidesCount));
+  add('ppt/slideMasters/slideMaster1.xml', buildSlideMaster(W, H));
+  add('ppt/slideLayouts/slideLayout1.xml', buildSlideLayout(W, H));
+  add('ppt/slideLayouts/_rels/slideLayout1.xml.rels', buildLayoutRels());
+  add('ppt/theme/theme1.xml', buildTheme(colors));
+  add('docProps/app.xml', buildApp(slidesCount));
+  add('docProps/core.xml', buildCore());
+
+  for (let i = 0; i < slidesCount; i++) {
+    add(`ppt/slides/slide${i+1}.xml`, slideXmls[i]);
+    add(`ppt/slides/_rels/slide${i+1}.xml.rels`, slideRels[i]);
+  }
+
+  return files;
+}
+
+// ============================================================
+// OOXML 构建辅助：单位转换
+// ============================================================
+function toEmu(inches){ return Math.round(inches * 914400) }
+
+// ============================================================
+// DOM 解析：HTML → 幻灯片结构
+// ============================================================
+function parseHtml(html, mode){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const body = doc.body;
+  const nodes = Array.from(body.children);
+
+  if (nodes.length === 0) {
+    const root = body.querySelector('section, article, .slide, .slides, main');
+    return root ? parseSlides(Array.from(root.children), mode) : [];
+  }
+  return parseSlides(nodes, mode);
+}
+
+function parseSlides(nodes, mode){
+  if (mode === 'section') {
+    const slides = [];
+    for (const el of nodes) {
+      if (el.tagName.toLowerCase() === 'section') {
+        const s = { title: '', elements: [] };
+        parseEls(el.children, s); slides.push(s);
+      }
+    }
+    return slides.length > 0 ? slides : [{ title: '', elements: parseAll(nodes) }];
+  }
+
+  const splitTags = mode === 'h1' ? ['h1'] : mode === 'h1h2' ? ['h1','h2'] : ['h1','h2','hr'];
+  const slides = []; let cur = null;
+
+  for (const el of nodes) {
+    const tag = el.tagName.toLowerCase();
+    if (splitTags.includes(tag)) {
+      cur = { title: (tag==='h1'||tag==='h2') ? el.textContent.trim() : '', elements: [] };
+      slides.push(cur);
+      if (tag === 'h1' || tag === 'h2') {
+        cur.elements.push({ type: tag, text: el.textContent.trim(), raw: el.innerHTML.trim() });
+      }
+      if (tag === 'hr') cur.elements.push({ type: 'hr' });
+    } else if (cur) {
+      parseEl(el, cur);
+    } else {
+      cur = { title: '', elements: [] };
+      slides.push(cur);
+      parseEl(el, cur);
+    }
+  }
+  if (slides.length === 0) {
+    slides.push({ title: '', elements: parseAll(nodes) });
+  }
+  return slides;
+}
+
+function parseAll(nodes){
+  const els = [];
+  for (const n of nodes) parseEl(n, { elements: els });
+  return els;
+}
+
+function parseEls(children, slide){
+  for (const c of children) parseEl(c, slide);
+}
+
+function parseEl(el, slide){
+  const tag = el.tagName.toLowerCase();
+  const idx = slide.elements.length;
+  switch(tag) {
+    case 'h1': case 'h2': case 'h3':
+      if (!slide.title) slide.title = el.textContent.trim();
+      slide.elements.push({ type: tag, text: el.textContent.trim(), raw: el.innerHTML.trim(), _i: idx });
+      break;
+    case 'p':
+      slide.elements.push({ type: 'p', text: el.textContent.trim(), raw: el.innerHTML.trim(), _i: idx });
+      break;
+    case 'ul': case 'ol': {
+      const items = Array.from(el.querySelectorAll('li')).map(li => li.innerHTML.trim());
+      slide.elements.push({ type: tag, items, ordered: tag==='ol', _i: idx });
+      break;
+    }
+    case 'table': {
+      const rows = Array.from(el.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('th,td')).map(td => td.innerHTML.trim())
+      );
+      const cols = rows.reduce((m, r) => Math.max(m, r.length), 0);
+      slide.elements.push({ type: 'table', rows, cols, _i: idx });
+      break;
+    }
+    case 'pre': case 'code':
+      slide.elements.push({ type: 'code', text: el.textContent.trim(), _i: idx });
+      break;
+    case 'blockquote':
+      slide.elements.push({ type: 'quote', text: el.innerHTML.trim(), _i: idx });
+      break;
+    case 'hr':
+      slide.elements.push({ type: 'hr', _i: idx });
+      break;
+    case 'section':
+      for (const c of el.children) parseEl(c, slide);
+      break;
+  }
+}
+
+// ============================================================
+// 3 套模板
+// ============================================================
+const TEMPLATES = {
+  clean: {
+    name: '干净白底',
+    bg: 'FFFFFF', bg2: 'F5F5F0',
+    title: '1A1A1A', body: '333333',
+    accent: 'DA291C', topLine: 'DA291C',
+    border: 'DDDDDD', alt: 'F9F9F9',
+    tblHdr: 'DA291C', tblTxt: 'FFFFFF',
+  },
+  modern: {
+    name: '现代专业',
+    bg: 'FFFFFF', bg2: 'F0F4F8',
+    title: '1E293B', body: '334155',
+    accent: '3B82F6', topLine: '3B82F6',
+    border: 'CBD5E1', alt: 'F8FAFC',
+    tblHdr: '1E293B', tblTxt: 'FFFFFF',
+  },
+  dark: {
+    name: '深色风格',
+    bg: '1E1E2E', bg2: '181825',
+    title: 'CDD6F4', body: 'A6ADC8',
+    accent: 'F5C2E7', topLine: 'F5C2E7',
+    border: '45475A', alt: '313244',
+    tblHdr: '45475A', tblTxt: 'CDD6F4',
+  },
+};
+
+const TPL_DEMO = {
+  clean: { accent: '#DA291C' },
+  modern: { accent: '#3B82F6' },
+  dark: { accent: '#F5C2E7' },
+};
+
+// ============================================================
+// 格式辅助
+// ============================================================
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function stripHtml(h){
+  const d = document.createElement('div'); d.innerHTML = h;
+  return d.textContent.replace(/\s+/g, ' ').trim();
+}
+function parseRich(html){
+  const d = document.createElement('div'); d.innerHTML = html;
+  const res = [];
+  function walk(n){
+    if (n.nodeType === 3) {
+      const t = n.textContent.replace(/\s+/g, ' ').trim();
+      if (t) res.push({ text: t, sz: 1300 });
+    } else if (n.nodeType === 1) {
+      const tag = n.tagName.toLowerCase();
+      const opts = { sz: 1300 };
+      if (tag==='strong'||tag==='b') opts.bold = true;
+      if (tag==='em'||tag==='i') opts.italic = true;
+      for (const c of n.childNodes) walk(c);
+    }
+  }
+  for (const c of d.childNodes) walk(c);
+  return res;
+}
+function countEls(slides){
+  return slides.reduce((a,s) => a + s.elements.length, 0);
+}
+
+// ============================================================
+// OOXML 构建函数
+// ============================================================
+
+// -------- Shape helpers --------
+function buildTextBox(id, x, y, w, h, runs){
+  const rs = runs.map((r, i) => {
+    const align = r.align === 'ctr' ? 'ctr' : r.align === 'r' ? 'r' : 'l';
+    const bold = r.bold ? ' bold="1"' : '';
+    const italic = r.italic ? ' italic="1" ' : '';
+    const al = align === 'l' ? '' : `<a:algn>${align==='ctr'?'ctr':'r'}</a:algn>`;
+    return `<a:r><a:rPr sz="${r.sz||1200}"${bold}${italic}><a:solidFill><a:srgbClr val="${r.color||'333333'}"/></a:solidFill></a:rPr><a:t>${escXml(r.text)}</a:t></a:r>`;
+  }).join('');
+  return [`<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${id}"/><p:cNvSpPr txBox="1"><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toEmu(x)}" y="${toEmu(y)}"/><a:ext cx="${toEmu(w)}" cy="${toEmu(h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="0"/></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0"/><a:lstStyle/>${rs?'<a:p>'+rs+'</a:p>':'<a:p/>'}</p:txBody></p:sp>`];
+}
+
+function buildTable(id, x, y, w, h, rows, colors){
+  const rowH = rows.length > 0 ? h / rows.length : h;
+  const colW = rows[0] ? w / rows[0].length : w;
+  const cols = rows[0] ? rows[0].length : 1;
+  
+  let grid = '', rowXml = '';
+  for (let c = 0; c < cols; c++) grid += `<a:gridCol w="${toEmu(colW)}"/>`;
+  for (let ri = 0; ri < rows.length; ri++) {
+    let cells = '';
+    for (let ci = 0; ci < rows[ri].length; ci++) {
+      const isHdr = ri === 0;
+      const bg = isHdr ? colors.tblHdr : (ri % 2 === 0 ? 'FFFFFF' : colors.alt || 'F9F9F9');
+      const tc = isHdr ? colors.tblTxt : colors.body;
+      cells += `<a:tc><a:txBody><a:bodyPr/><a:p><a:r><a:rPr sz="${isHdr?1000:1000}" bold="${isHdr?1:0}"><a:solidFill><a:srgbClr val="${tc}"/></a:solidFill></a:rPr><a:t>${escXml(rows[ri][ci])}</a:t></a:r></a:p></a:txBody><a:tcPr><a:solidFill><a:srgbClr val="${bg}"/></a:solidFill><a:ln w="0"/><a:marL w="45720"/><a:marR w="45720"/><a:marT w="27432"/><a:marB w="27432"/></a:tcPr></a:tc>`;
+    }
+    rowXml += `<a:tr h="${toEmu(rowH)}">${cells}</a:tr>`;
+  }
+  return [`<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${id}"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toEmu(x)}" y="${toEmu(y)}"/><a:ext cx="${toEmu(w)}" cy="${toEmu(h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln w="0"/></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:tbl><a:tblPr><a:bandRow val="1"/></a:tblPr><a:tblGrid>${grid}</a:tblGrid>${rowXml}</a:tbl></p:txBody></p:sp>`];
+}
+
+function buildCodeBox(id, x, y, w, text, colors){
+  return [`<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${id}"/><p:cNvSpPr txBox="1"><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toEmu(x)}" y="${toEmu(y)}"/><a:ext cx="${toEmu(w)}" cy="${toEmu(0.45)}"/></a:xfrm><a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${colors.bg2}"/></a:solidFill><a:ln w="9144"><a:solidFill><a:srgbClr val="${colors.border}"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap="square" rtlCol="0"/><a:lstStyle/><a:p><a:r><a:rPr sz="900" latin="{&quot;typeface&quot;:&quot;Courier New&quot;}"><a:solidFill><a:srgbClr val="${colors.body}"/></a:solidFill></a:rPr><a:t>${escXml(text)}</a:t></a:r></a:p></p:txBody></p:sp>`];
+}
+
+function buildQuote(id, x, y, w, text, colors){
+  return [
+    `<p:sp><p:nvSpPr><p:cNvPr id="${id}_bar" name="qbar"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr></p:nvSpPr><p:spPr><a:xfrm><a:off x="${toEmu(x)}" y="${toEmu(y)}"/><a:ext cx="${toEmu(0.04)}" cy="${toEmu(0.4)}"/></a:xfrm><a:solidFill><a:srgbClr val="${colors.accent}"/></a:solidFill><a:ln w="0"/></p:spPr></p:sp>`,
+    ...buildTextBox(id+'_txt', x+0.15, y, w-0.15, 0.4, [{text, sz: 1200, italic: true, color: colors.body}])
+  ];
+}
+
+// -------- Slide XML --------
+function buildSlideXml(id, bgColor, shapes, W, H){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:bg><p:bgPr><a:solidFill><a:srgbClr val="${bgColor}"/></a:solidFill></p:bgPr></p:bg>
+    <p:spTree>
+      <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+      <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${toEmu(W)}" cy="${toEmu(H)}"/></a:xfrm></p:grpSpPr>
+      ${shapes.join('\n      ')}
+    </p:spTree>
+  </p:cSld>
+  <p:sldSz cx="${toEmu(W)}" cy="${toEmu(H)}"/>
+</p:sld>`;
+}
+
+function buildSlideRels(id){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+</Relationships>`;
+}
+
+// -------- Package files --------
+function buildContentTypes(n){
+  let overrides = '';
+  for (let i = 1; i <= n; i++) {
+    overrides += `<Override PartName="/ppt/slides/slide${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+  <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+  ${overrides}
+</Types>`;
+}
+
+function buildRels(){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>`;
+}
+
+function buildPresentation(n, W, H){
+  let slideIds = '';
+  for (let i = 1; i <= n; i++) {
+    slideIds += `<p:sldId id="${256+i}" r:id="rId${i}"/>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rIdMaster"/></p:sldMasterIdLst>
+  <p:sldIdLst>${slideIds}</p:sldIdLst>
+  <p:sldSz cx="${toEmu(W)}" cy="${toEmu(H)}"/>
+  <p:notesSz cx="${toEmu(8.5)}" cy="${toEmu(11)}"/>
+</p:presentation>`;
+}
+
+function buildPresRels(n){
+  let rels = '';
+  for (let i = 1; i <= n; i++) {
+    rels += `<Relationship Id="rId${i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i}.xml"/>`;
+  }
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdMaster" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
+  ${rels}
+</Relationships>`;
+}
+
+function buildSlideMaster(W, H){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${toEmu(W)}" cy="${toEmu(H)}"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld>
+  <p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rIdLayout"/></p:sldLayoutIdLst>
+  <p:sldSz cx="${toEmu(W)}" cy="${toEmu(H)}"/>
+</p:sldMaster>`;
+}
+
+function buildSlideLayout(W, H){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank">
+  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${toEmu(W)}" cy="${toEmu(H)}"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld>
+</p:sldLayout>`;
+}
+
+function buildLayoutRels(){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+</Relationships>`;
+}
+
+function buildTheme(colors){
+  // Minimal valid theme
+  const c = colors;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Custom">
+  <a:themeElements>
+    <a:clrScheme name="Custom">
+      <a:dk1><a:srgbClr val="${c.title}"/></a:dk1>
+      <a:lt1><a:srgbClr val="${c.bg}"/></a:lt1>
+      <a:dk2><a:srgbClr val="${c.body}"/></a:dk2>
+      <a:lt2><a:srgbClr val="${c.bg2}"/></a:lt2>
+      <a:accent1><a:srgbClr val="${c.accent}"/></a:accent1>
+      <a:accent2><a:srgbClr val="${c.accent}"/></a:accent2>
+      <a:accent3><a:srgbClr val="${c.tblHdr}"/></a:accent3>
+      <a:accent4><a:srgbClr val="${c.border}"/></a:accent4>
+      <a:accent5><a:srgbClr val="${c.title}"/></a:accent5>
+      <a:accent6><a:srgbClr val="${c.body}"/></a:accent6>
+      <a:hlink><a:srgbClr val="0563C1"/></a:hlink>
+      <a:folHlink><a:srgbClr val="954F72"/></a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name="Custom">
+      <a:majorFont><a:latin typeface="Arial"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>
+      <a:minorFont><a:latin typeface="Arial"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name="Custom">
+      <a:fillStyleLst><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:solidFill><a:srgbClr val="F5F5F0"/></a:solidFill><a:solidFill><a:srgbClr val="EEEEEE"/></a:solidFill></a:fillStyleLst>
+      <a:lnStyleLst><a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln><a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln><a:ln w="6350"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></a:lnStyleLst>
+      <a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>
+      <a:bgFillStyleLst><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+</a:theme>`;
+}
+
+function buildApp(n){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Application>HTML-to-PPTX Converter</Application>
+  <Slides>${n}</Slides>
+</Properties>`;
+}
+
+function buildCore(){
+  const now = new Date().toISOString().replace(/[-:]/g, '');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:creator>HTML-to-PPTX Converter</dc:creator>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created>
+  <cp:revision>1</cp:revision>
+</cp:coreProperties>`;
+}
+
+// ============================================================
+// 预览渲染 + 转换主流程
+// ============================================================
+let _slides = [];
+
+function renderPreview(){
+  const html = htmlSrc.value.trim();
+  charCnt.textContent = html.length.toLocaleString() + ' 字符';
+  overlay.classList.toggle('hidden', html.length > 0);
+
+  if (!html) {
+    preview.innerHTML = '<div class="empty"><div class="icon">📝</div><div>粘贴或加载 HTML 后，此处显示幻灯片预览</div><div style="font-size:11px">H1 = 标题页 · H2 = 内容标题</div></div>';
+    sc.textContent = '0'; ec.textContent = '0'; extra.innerHTML = '';
+    _slides = []; return;
+  }
+
+  try {
+    _slides = parseHtml(html, splitSel.value);
+    const total = countEls(_slides);
+    sc.textContent = _slides.length;
+    ec.textContent = total;
+
+    const tplDemo = TPL_DEMO[tplSel.value] || TPL_DEMO.modern;
+    const modeNames = { h1:'仅H1', h1h2:'H1+H2', hr:'含分隔线', section:'按Section' };
+    extra.innerHTML = `🎨 ${TEMPLATES[tplSel.value]?.name||''} · ${modeNames[splitSel.value]||''}`;
+
+    let cards = '';
+    for (let i = 0; i < _slides.length; i++) {
+      const s = _slides[i];
+      const types = {};
+      s.elements.forEach(e => { types[e.type] = (types[e.type]||0)+1; });
+      const tags = Object.entries(types).map(([k,v]) => `<span class="tag">${k}${v>1?'×'+v:''}</span>`).join('');
+      const first = s.elements.find(e => e.type==='p' || e.type==='ul');
+      const prev = first ? stripHtml(first.text || first.items?.[0]||'').slice(0,60) : '';
+      cards += `<div class="card" style="border-left:3px solid ${tplDemo.accent}">
+        <div class="n">${i+1}</div>
+        <div class="t">${s.title||'(无标题)'}</div>
+        <div class="m">${s.elements.length} 元素 ${tags}</div>
+        ${prev ? `<div class="p">${prev}${prev.length>=60?'…':''}</div>` : ''}
+      </div>`;
+    }
+    preview.innerHTML = cards || '<div class="empty"><div class="icon">⚠️</div><div>未能解析出幻灯片</div></div>';
+  } catch(e) {
+    preview.innerHTML = `<div class="empty" style="color:#ef4444"><div class="icon">⚠️</div><div>解析错误: ${e.message}</div></div>`;
+    sc.textContent = '0'; ec.textContent = '0'; _slides = [];
+  }
+}
+
+async function doConvert(){
+  const html = htmlSrc.value.trim();
+  if (!html) { msg('请先输入或加载 HTML 内容', 'err'); return; }
+  if (_slides.length === 0) { msg('未解析到幻灯片内容', 'err'); return; }
+
+  // 生成完整 HTML 文件（包含演示文稿结构）
+  const title = _slides[0]?.title || '演示文稿';
+  const tpl_name = tplSel.options[tplSel.selectedIndex]?.textContent || '现代专业';
+  
+  let slidesHtml = '';
+  for (let i = 0; i < _slides.length; i++) {
+    const s = _slides[i];
+    if (i === 0) {
+      slidesHtml += `<section><h1>${escHtml(s.title || '演示文稿')}</h1>\n`;
+      const sub = s.elements.find(e => e.type==='p');
+      if (sub) slidesHtml += `<p>${escHtml(sub.text)}</p>\n`;
+      slidesHtml += `</section>\n\n`;
+    } else {
+      slidesHtml += `<section>\n<h2>${escHtml(s.title || '')}</h2>\n`;
+      for (const el of s.elements) {
+        if (el.type==='p') slidesHtml += `<p>${escHtml(el.text)}</p>\n`;
+        else if (el.type==='ul'||el.type==='ol') {
+          slidesHtml += `<${el.type}>\n`;
+          for (const item of (el.items||[])) slidesHtml += `  <li>${escHtml(item)}</li>\n`;
+          slidesHtml += `</${el.type}>\n`;
+        } else if (el.type==='table') {
+          slidesHtml += `<table>\n`;
+          for (const row of (el.rows||[])) {
+            slidesHtml += `  <tr>${row.map(c => `<td>${escHtml(c)}</td>`).join('')}</tr>\n`;
+          }
+          slidesHtml += `</table>\n`;
+        } else if (el.type==='quote') slidesHtml += `<blockquote>${escHtml(el.text)}</blockquote>\n`;
+        else if (el.type==='code') slidesHtml += `<pre><code>${escHtml(el.text)}</code></pre>\n`;
+      }
+      slidesHtml += `</section>\n\n`;
+    }
+  }
+
+  const fullHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>${escHtml(title)}</title>
+</head>
+<body>
+<!-- 模板: ${tpl_name} | 拆分: ${splitNames[splitSel.value] || 'H1+H2'} -->
+<!-- 由 html-to-pptx-converter.html 生成 -->
+${slidesHtml}
+</body>
+</html>`;
+
+  // 下载 HTML 文件
+  const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'presentation.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+    // 显示转换命令
+  const modeNames2 = { h1:'h1', h1h2:'h1h2', hr:'hr', section:'section' };
+  const splitArg = modeNames2[splitSel.value] || 'h1h2';
+  const cmd = `python html2pptx.py presentation.html presentation.pptx --template "${tpl_name}" --split ${splitArg}`;
+  document.getElementById('cmdText').textContent = cmd;
+  document.getElementById('cmdBar').style.display = 'block';
+  msg(`✅ HTML 已下载: ${_slides.length} 页`, 'ok');
+}
+
+// ============================================================
+// 事件绑定
+// ============================================================
+htmlSrc.addEventListener('input', () => { renderPreview(); document.getElementById('cmdBar').style.display='none'; });
+tplSel.addEventListener('change', renderPreview);
+splitSel.addEventListener('change', renderPreview);
+
+btnOpen.addEventListener('click', () => fileInput.click());
+btnPick.addEventListener('click', () => fileInput.click());
+overlay.addEventListener('click', (e) => {
+  if (e.target === overlay || e.target.tagName === 'P' || e.target.classList.contains('icon') || e.target.classList.contains('sub'))
+    fileInput.click();
+});
+
+fileInput.addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = (ev) => { htmlSrc.value = ev.target.result; renderPreview(); msg(`已加载: ${f.name} (${(f.size/1024).toFixed(1)} KB)`); };
+  r.onerror = () => msg('读取文件失败', 'err');
+  r.readAsText(f);
+  fileInput.value = '';
+});
+
+btnClear.addEventListener('click', () => { htmlSrc.value = ''; renderPreview(); });
+
+btnDemo.addEventListener('click', () => {
+  htmlSrc.value = `<!DOCTYPE html>
+<html>
+<head><title>示例演示</title></head>
+<body>
+
+<h1>Claude Fable 5 vs GPT-5.6</h1>
+<p>旗舰模型全面对比研究报告 · 2026-07</p>
+
+<h2>核心结论</h2>
+<ul>
+  <li><strong>Claude Fable 5</strong> 是当前更现实的落地选择</li>
+  <li><strong>GPT-5.6</strong> 价格分层优势明显，但仅限 limited preview</li>
+  <li>最稳妥的长期方案是<strong>分层使用</strong></li>
+</ul>
+
+<h2>价格对比</h2>
+<table>
+  <tr><th>模型</th><th>输入价格</th><th>输出价格</th></tr>
+  <tr><td>Claude Fable 5</td><td>$10</td><td>$50</td></tr>
+  <tr><td>GPT-5.6 Sol</td><td>$5</td><td>$30</td></tr>
+  <tr><td>GPT-5.6 Terra</td><td>$2.5</td><td>$15</td></tr>
+  <tr><td>GPT-5.6 Luna</td><td>$1</td><td>$6</td></tr>
+</table>
+
+<h2>选型建议</h2>
+<ol>
+  <li>个人开发者 → Fable 5</li>
+  <li>小团队 → Fable 5 + 低成本模型混合</li>
+  <li>企业 → 并行测试两者</li>
+  <li>大规模自动化 → 等 Terra/Luna 开放</li>
+</ol>
+
+<blockquote>最稳妥的长期方案不是二选一，而是分层使用。</blockquote>
+
+</body>
+</html>`;
+  renderPreview();
+  msg('已加载示例内容');
+});
+
+// Drag/drop on overlay
+overlay.addEventListener('dragover', e => { e.preventDefault(); overlay.classList.add('dragover'); });
+overlay.addEventListener('dragleave', () => overlay.classList.remove('dragover'));
+overlay.addEventListener('drop', e => {
+  e.preventDefault(); overlay.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (!f || !f.name.match(/\.html?$/i)) { msg('请拖入 .html 文件', 'err'); return; }
+  const r = new FileReader();
+  r.onload = (ev) => { htmlSrc.value = ev.target.result; renderPreview(); msg(`已加载: ${f.name}`); };
+  r.readAsText(f);
+});
+
+// Global drop for when overlay is hidden
+document.addEventListener('dragover', e => { if (overlay.classList.contains('hidden')) e.preventDefault(); });
+document.addEventListener('drop', e => {
+  if (!overlay.classList.contains('hidden')) return;
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (!f || !f.name.match(/\.html?$/i)) return;
+  const r = new FileReader();
+  r.onload = (ev) => { htmlSrc.value = ev.target.result; renderPreview(); msg(`已加载: ${f.name}`); };
+  r.readAsText(f);
+});
+
+// Convert
+btnGo.addEventListener('click', doConvert);
+htmlSrc.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); doConvert(); }
+});
+
+// Resize handle
+let isResizing = false;
+const resize = $('resize');
+resize.addEventListener('mousedown', e => { isResizing = true; resize.classList.add('active'); e.preventDefault(); });
+document.addEventListener('mousemove', e => {
+  if (!isResizing) return;
+  const pct = Math.max(25, Math.min(70, e.clientX / window.innerWidth * 100));
+  document.querySelector('.panel-left').style.width = pct + '%';
+  document.querySelector('.panel-right').style.width = (100 - pct) + '%';
+});
+document.addEventListener('mouseup', () => { isResizing = false; resize.classList.remove('active'); });
+resize.addEventListener('touchstart', e => { isResizing = true; resize.classList.add('active'); e.preventDefault(); }, { passive: false });
+document.addEventListener('touchmove', e => {
+  if (!isResizing) return;
+  const pct = Math.max(25, Math.min(70, e.touches[0].clientX / window.innerWidth * 100));
+  document.querySelector('.panel-left').style.width = pct + '%';
+  document.querySelector('.panel-right').style.width = (100 - pct) + '%';
+}, { passive: false });
+document.addEventListener('touchend', () => { isResizing = false; resize.classList.remove('active'); });
+
+// Init
+renderPreview();
+msg('✅ 转换器就绪 · 纯本地运行 · 零外部依赖', 'ok');
+
+})();
+</script>
+</body>
+</html>

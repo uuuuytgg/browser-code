@@ -1,11 +1,10 @@
-/**
- * embeddings.ts — LLM Wiki 语义嵌入管道
- *
- * 调用 DeepSeek Embeddings API，将 kb/claims/ 下所有 claim 编码为
- * float32 BLOB 存入 claim_embeddings 表，并做余弦相似度去重检查。
- *
- * Usage: bun run kb:embeddings
- */
+// 实际情况：DeepSeek 不提供独立 embeddings API（模型只返回 v4-flash/v4-pro 两个 chat 模型）。
+// P3 语义检索的务实方案调整为：用 kb_manage context action 让 LLM 对已有 claims
+// 做文本级语义匹配 → 返回相关 claim 排序列表。本地语义管道用 bge-small-zh
+// 离线生成嵌入（无需 API key，且数据不外发）——嵌入生成函数已保留骨架可随时接入。
+//
+// 本文件的 API 调用部分已标记为 SKIPPED，BLOB 表 schema 不变，未来有 embedding endpoint 时复用。
+
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
