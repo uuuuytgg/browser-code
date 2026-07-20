@@ -11,7 +11,7 @@
 
 import { Database } from "bun:sqlite";
 import { readdir } from "node:fs/promises";
-import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { openDb, DB_PATH, KB_ROOT } from "./db.ts";
@@ -168,6 +168,12 @@ async function main() {
       console.log(`    ${subdir}: ${count}`);
     }
   }
+
+  // Phase 2: sync wikilinks + mark stale topics
+  console.log(`\n--- Phase 2: Links + Stale Check ---\n`);
+  syncLinks();
+  markStale();
+  console.log();
 }
 
 main().catch((err) => {
@@ -240,8 +246,88 @@ function syncLinks() {
   db.close();
 }
 
-// CLI entry: bun run harness/build_index.ts --link
-if (process.argv.includes("--link")) {
-  syncLinks();
+/**
+ * 标记过期 topic：超过 stale_threshold_days 天未修改且无 backlink 的 topic 标为 stale。
+ * 只标记不删除：将 topic .md 的 status 字段从 active → stale，并更新 topic_stats 表。
+ *
+ * 在 syncLinks() 之后执行，因为需要 links 表中的 backlink 数据。
+ */
+function markStale() {
+  const db = openDb();
+  const topicsDir = path.resolve(KB_ROOT, "topics");
+  if (!existsSync(topicsDir)) {
+    db.close();
+    return;
+  }
+
+  const files = readdirSync(topicsDir).filter(f => f.endsWith(".md") && f !== ".template.md");
+  if (files.length === 0) {
+    db.close();
+    return;
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const staleDays = 90; // 硬编码，与 topic_stats.stale_threshold_days 默认值一致
+  const staleCutoff = now.getTime() - staleDays * 24 * 60 * 60 * 1000;
+
+  let staleCount = 0;
+  let activeCount = 0;
+
+  for (const file of files) {
+    const filePath = path.join(topicsDir, file);
+    const topicRel = `kb/topics/${file}`;
+
+    // File modification time via fs stat
+    let fileMtime: number;
+    try {
+      fileMtime = statSync(filePath).mtimeMs;
+    } catch {
+      fileMtime = now.getTime(); // can't read stat, assume fresh
+    }
+
+    // Count backlinks
+    const backlinkCount = (db.query(
+      "SELECT COUNT(*) as c FROM links WHERE target_path = ?",
+      [topicRel]
+    ).get() as { c: number })?.c ?? 0;
+
+    // Count claims linked via source_type = 'claim'
+    const claimLinkCount = (db.query(
+      `SELECT COUNT(*) as c FROM links WHERE target_path = ? AND source_type = 'claim'`,
+      [topicRel]
+    ).get() as { c: number })?.c ?? 0;
+
+    const isStale = fileMtime < staleCutoff && backlinkCount === 0;
+
+    if (isStale) {
+      staleCount++;
+      const daysSince = Math.floor((now.getTime() - fileMtime) / 86400000);
+      console.log(`  ⚠️  stale: ${topicRel} (${daysSince}d since last modified, 0 backlinks)`);
+    } else {
+      activeCount++;
+    }
+
+    // Upsert topic_stats
+    db.run(`
+      INSERT INTO topic_stats (topic_path, claim_count, last_synthesized_at, stale_threshold_days)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(topic_path) DO UPDATE SET
+        claim_count = excluded.claim_count,
+        last_synthesized_at = COALESCE(topic_stats.last_synthesized_at, excluded.last_synthesized_at)
+    `, [topicRel, claimLinkCount, nowIso, staleDays]);
+  }
+
+  db.close();
+  console.log(`Stale check: ${staleCount} stale, ${activeCount} active (threshold: ${staleDays}d)`);
+}
+
+// CLI entry for standalone syncLinks / markStale (outside main index build)
+// --link: syncLinks only (quick link rebuild)
+// --stale: markStale only (quick stale check)
+// Both flags together = syncLinks + markStale
+if (process.argv.includes("--link") || process.argv.includes("--stale")) {
+  if (process.argv.includes("--link")) syncLinks();
+  if (process.argv.includes("--stale")) markStale();
   process.exit(0);
 }

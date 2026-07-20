@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { createHash } from "node:crypto"
 import { Database } from "bun:sqlite"
@@ -883,6 +883,7 @@ const kbManageTool: ToolDefinition = tool({
 - **outlinks**: Query pages a given source links to. Requires: target.
   Example: kb_manage({action: "outlinks", target: "kb/topics/world-model.md"})
 - **orphans**: List kb files with zero inbound links (dead knowledge). No target needed.
+- **stale**: List stale topics (unmodified >90d with 0 backlinks). No target needed. Reads from topic_stats table populated by build_index.
 - **conflicts**: Find conflicting claims pointing to the same topic. Requires: target (topic path).
   Example: kb_manage({action: "conflicts", target: "kb/topics/world-model.md"})
 
@@ -901,7 +902,7 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
       .enum([
         "save_source", "save_claims", "link_topic", "link_entity",
         "after_capture", "search", "context",
-        "backlinks", "outlinks", "orphans", "conflicts",
+        "backlinks", "outlinks", "orphans", "stale", "conflicts",
         "synthesize", "speculate",
       ])
       .describe("KB action to execute."),
@@ -1113,6 +1114,40 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         }
         db.close()
         return JSON.stringify(orphans, null, 2)
+      }
+
+      case "stale": {
+        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const rows = db.query(`
+          SELECT ts.topic_path, ts.claim_count, ts.last_synthesized_at,
+                 COALESCE((SELECT COUNT(*) FROM links WHERE target_path = ts.topic_path), 0) as backlink_count
+          FROM topic_stats ts
+          ORDER BY ts.claim_count ASC
+        `).all() as Array<{topic_path: string; claim_count: number; last_synthesized_at: string; backlink_count: number}>
+
+        const topicsDir = join(process.cwd(), "kb", "topics")
+        const stale: Array<{path: string; claims: number; backlinks: number; daysSinceModified: number}> = []
+        const active: Array<{path: string; claims: number; backlinks: number; daysSinceModified: number}> = []
+
+        const now = Date.now()
+        const staleThreshold = 90 * 86400000
+
+        for (const r of rows) {
+          const filePath = join(topicsDir, r.topic_path.replace(/^kb\/topics\//, ""))
+          let fileMtime = now
+          try { fileMtime = statSync(filePath).mtimeMs } catch {}
+          const daysSince = Math.floor((now - fileMtime) / 86400000)
+          const entry = { path: r.topic_path, claims: r.claim_count, backlinks: r.backlink_count, daysSinceModified: daysSince }
+
+          if (fileMtime < (now - staleThreshold) && r.backlink_count === 0) {
+            stale.push(entry)
+          } else {
+            active.push(entry)
+          }
+        }
+
+        db.close()
+        return JSON.stringify({ stale, active, threshold_days: 90 }, null, 2)
       }
 
       case "conflicts": {
