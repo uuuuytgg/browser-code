@@ -46,6 +46,7 @@
     "kb:enqueue": "bun run harness/enqueue.ts",
     "kb:process-queue": "bun run harness/process-queue.ts",
     "kb:install-hooks": "bun run harness/install-hooks.ts",
+    "kb:embeddings": "bun run harness/embeddings.ts",
     "cli": "bun run opencode/packages/opencode/src/temporary.ts",
     "serve": "bun run opencode/packages/opencode/src/cli/cmd/serve.ts",
     "tui": "bun run opencode/packages/opencode/src/temporary.ts",
