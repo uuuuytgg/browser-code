@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { join, resolve } from "node:path"
 import { createHash } from "node:crypto"
+import { Database } from "bun:sqlite"
 import { tool, type ToolDefinition } from "../../opencode/node_modules/@opencode-ai/plugin/src/index"
 import { validateKbPipeline, parsePipelineStatus } from "../../packages/research/src/validator"
 
@@ -665,12 +666,22 @@ const kbManageTool: ToolDefinition = tool({
 - **context**: Generate structured answer context (Claims→Topics→Entities→Sources).
   Params: query
 
+### Graph side
+- **backlinks**: Query pages linking to a given target path. Requires: target.
+  Example: kb_manage({action: "backlinks", target: "kb/claims/2026-07-10-foo.claims.md"})
+- **outlinks**: Query pages a given source links to. Requires: target.
+  Example: kb_manage({action: "outlinks", target: "kb/topics/world-model.md"})
+- **orphans**: List kb files with zero inbound links (dead knowledge). No target needed.
+- **conflicts**: Find conflicting claims pointing to the same topic. Requires: target (topic path).
+  Example: kb_manage({action: "conflicts", target: "kb/topics/world-model.md"})
+
 Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
   args: {
     action: tool.schema
       .enum([
         "save_source", "save_claims", "link_topic", "link_entity",
         "after_capture", "search", "context",
+        "backlinks", "outlinks", "orphans", "conflicts",
       ])
       .describe("KB action to execute."),
 
@@ -735,6 +746,9 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
 
     query: tool.schema.string().optional()
       .describe("(search / context) Search query string."),
+
+    target: tool.schema.string().optional()
+      .describe("(backlinks/outlinks/conflicts) Target file path, e.g. kb/claims/xxx.md or kb/topics/xxx.md"),
   },
   async execute(args) {
     const action = args.action as string
@@ -821,6 +835,58 @@ Format reference: docs/superpowers/specs/VAULT_FORMAT.md`,
         }
         const result = await handleContext(args.query as string)
         return JSON.stringify(result, null, 2)
+      }
+
+      case "backlinks": {
+        if (!args.target) throw new Error("backlinks requires: target")
+        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const rows = db.query(`SELECT source_path, source_type, link_context FROM links WHERE target_path = ?`, [args.target as string]).all() as Array<{source_path: string; source_type: string; link_context: string}>
+        db.close()
+        return JSON.stringify({ target: args.target, backlinks: rows.map(r => ({ source_path: r.source_path, source_type: r.source_type, context: r.link_context?.slice(0, 100) })) }, null, 2)
+      }
+
+      case "outlinks": {
+        if (!args.target) throw new Error("outlinks requires: target")
+        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const rows = db.query(`SELECT target_path, target_type, link_context FROM links WHERE source_path = ?`, [args.target as string]).all() as Array<{target_path: string; target_type: string; link_context: string}>
+        db.close()
+        return JSON.stringify({ source: args.target, outlinks: rows.map(r => ({ target_path: r.target_path, target_type: r.target_type, context: r.link_context?.slice(0, 100) })) }, null, 2)
+      }
+
+      case "orphans": {
+        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const orphans: Record<string, string[]> = {
+          claims: [],
+          entities: [],
+          topics: [],
+        }
+        const typeDirMap: Array<[string, string]> = [["claim", "claims"], ["entity", "entities"], ["topic", "topics"]]
+        for (const [type, dir] of typeDirMap) {
+          const dirPath = join(process.cwd(), "kb", dir)
+          if (!existsSync(dirPath)) continue
+          const files = readdirSync(dirPath).filter(f => f.endsWith(".md") && f !== ".template.md")
+          for (const f of files) {
+            const p = `kb/${dir}/${f}`
+            const count = db.query("SELECT COUNT(*) as c FROM links WHERE target_path = ?", [p]).get() as {c: number}
+            if (count.c === 0) orphans[type].push(p)
+          }
+        }
+        db.close()
+        return JSON.stringify(orphans, null, 2)
+      }
+
+      case "conflicts": {
+        if (!args.target) throw new Error("conflicts requires: target (topic path)")
+        const topic = args.target as string
+        const db = new Database(resolve(process.cwd(), "index/browsercode.sqlite"))
+        const rows = db.query(`
+          SELECT l1.source_path as a, l2.source_path as b, l1.link_context as a_ctx, l2.link_context as b_ctx
+          FROM links l1
+          JOIN links l2 ON l1.target_path = l2.target_path AND l1.source_path < l2.source_path
+          WHERE l1.target_path = ? AND l1.link_kind = 'ref'
+        `, [topic]).all() as Array<{a: string; b: string; a_ctx: string; b_ctx: string}>
+        db.close()
+        return JSON.stringify({ topic, potentialConflicts: rows.map(r => ({ a: r.a, b: r.b })) }, null, 2)
       }
 
       default:
