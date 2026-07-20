@@ -11,6 +11,7 @@
 
 import { Database } from "bun:sqlite";
 import { readdir } from "node:fs/promises";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { openDb, DB_PATH, KB_ROOT } from "./db.ts";
@@ -173,3 +174,74 @@ main().catch((err) => {
   console.error("❌ build_index failed:", err);
   process.exit(1);
 });
+
+/** 扫描 KB 目录全量解析 [[wikilinks]]，重建 links 表 */
+function syncLinks() {
+  const db = openDb();
+  // 清空当前 links（全量 rebuild）
+  db.run("DELETE FROM links");
+
+  const dirs: Array<{ path: string; type: string }> = [
+    { path: path.resolve(KB_ROOT, "topics"), type: "topic" },
+    { path: path.resolve(KB_ROOT, "entities"), type: "entity" },
+    { path: path.resolve(KB_ROOT, "claims"), type: "claim" },
+    { path: path.resolve(KB_ROOT, "sources"), type: "source" },
+  ];
+
+  const stmt = db.prepare(
+    "INSERT OR IGNORE INTO links (source_path, source_type, target_path, target_type, link_context) VALUES (?,?,?,?,?)"
+  );
+
+  let totalLinks = 0;
+
+  const insert = db.transaction(() => {
+    for (const dir of dirs) {
+      if (!existsSync(dir.path)) continue;
+      for (const file of readdirSync(dir.path)) {
+        if (!file.endsWith(".md")) continue;
+        const filePath = path.join(dir.path, file);
+        const srcRel = `kb/${dir.type}s/${file}`;
+        const content = readFileSync(filePath, "utf8");
+        const lines = content.split("\n");
+
+        for (const line of lines) {
+          // Parse [[wikilinks]]
+          const linkMatches = line.matchAll(/\[\[([^\]]+)\]\]/g);
+          for (const m of linkMatches) {
+            let target = m[1].trim();
+            // Strip Obsidian display alias: [[target|display]]
+            const pipeIdx = target.indexOf("|");
+            if (pipeIdx >= 0) target = target.slice(0, pipeIdx);
+            // Resolve to relative kb/ path
+            let targetRel = target;
+            if (!target.startsWith("kb/")) {
+              if (target.includes("/")) {
+                targetRel = `kb/${target}.md`;
+              }
+            }
+            if (!targetRel.endsWith(".md")) targetRel += ".md";
+            let targetType = "claim"; // default
+            if (targetRel.includes("/topics/")) targetType = "topic";
+            else if (targetRel.includes("/entities/")) targetType = "entity";
+            else if (targetRel.includes("/claims/")) targetType = "claim";
+            else if (targetRel.includes("/sources/")) targetType = "source";
+
+            const ctx = line.slice(0, 200); // first 200 chars of line as context
+            stmt.run(srcRel, dir.type, targetRel, targetType, ctx);
+            totalLinks++;
+          }
+        }
+      }
+    }
+  });
+
+  insert();
+  console.log(`Links synced: ${totalLinks} total`);
+  db.close();
+}
+
+// CLI entry: bun run harness/build_index.ts --link
+if (process.argv.includes("--link")) {
+  syncLinks();
+  process.exit(0);
+}

@@ -75,6 +75,23 @@ export function openDb(): Database {
     WHERE status NOT IN ('pending','source_done','claims_done','topics_done','done','failed')
   `);
 
+  // links 表（P2 链接同步管线）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_path TEXT NOT NULL,
+      source_type TEXT NOT NULL CHECK(source_type IN ('topic','entity','claim','source')),
+      target_path TEXT NOT NULL,
+      target_type TEXT NOT NULL CHECK(target_type IN ('topic','entity','claim','source')),
+      link_kind TEXT NOT NULL DEFAULT 'ref' CHECK(link_kind IN ('ref','conflict','merged_into','synthesized_from')),
+      link_context TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(source_path, target_path, link_kind)
+    )
+  `);
+  db.run("CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_path)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_links_source ON links(source_path)");
+
   return db;
 }
 
