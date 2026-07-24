@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="website/assets/logo.png" alt="Browser Code" width="360" />
+<img src="website/assets/logo.png" alt="Browser Code eagle mark" width="220" />
 
 # Browser Code
 
