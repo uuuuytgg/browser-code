@@ -57,6 +57,13 @@ On first run, `vault/` (raw content) and `kb/` (knowledge graph) are created in 
 | 📊 **PPT Generation** | Generate presentation decks from research results |
 | 🎓 **Academic Analysis** | Built-in anthropologist, geographer, historian, psychologist subagents |
 
+### Capability Maps
+
+<p align="center">
+  <img src="website/assets/wordcloud-knowledge-system.png" alt="Browser Code knowledge-system word cloud" width="47%" />
+  <img src="website/assets/wordcloud-research-workflow.png" alt="Browser Code research-workflow word cloud" width="47%" />
+</p>
+
 ## Architecture
 
 ```

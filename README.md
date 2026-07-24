@@ -57,6 +57,13 @@ browser-code
 | 📊 **PPT 生成** | 从研究结果直接生成演示文稿 |
 | 🎓 **学术分析** | 内置人类学/地理学/历史学/心理学四位领域专家子代理 |
 
+### 能力图谱
+
+<p align="center">
+  <img src="website/assets/wordcloud-knowledge-system.png" alt="Browser Code 知识系统词云" width="47%" />
+  <img src="website/assets/wordcloud-research-workflow.png" alt="Browser Code 研究工作流词云" width="47%" />
+</p>
+
 ## 架构
 
 ```
